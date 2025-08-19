@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Inclusivo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Estilos para o modo daltônico */
+        .colorblind-mode .bg-blue-600, .colorblind-mode .bg-blue-700 {
+            background-color: #fca311; /* Laranja forte */
+        }
+        .colorblind-mode .text-blue-100 {
+            color: #000;
+        }
+        .colorblind-mode .bg-blue-100 {
+            background-color: #e9e9e9;
+        }
+        .colorblind-mode .text-blue-900 {
+            color: #000;
+        }
+        .colorblind-mode .border-blue-300 {
+            border-color: #000;
+        }
+        .colorblind-mode #next-step-btn {
+            background-color: #3b82f6; /* Azul para o botão de próximo passo */
+        }
+        .colorblind-mode #next-step-btn:hover {
+            background-color: #1d4ed8; /* Azul mais escuro no hover */
+        }
+
+        /* Estilos para o modo de deficiência motora */
+        .motor-impaired-mode input,
+        .motor-impaired-mode button,
+        .motor-impaired-mode label {
+            transform: scale(1.1);
+            font-size: 1.25rem; /* Aumenta o tamanho da fonte */
+        }
+        .motor-impaired-mode button {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        
+        /* Estilos para o canvas do mapa */
+        #map-canvas {
+            border-radius: 1rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 2px solid;
+            transition: border-color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Container principal do aplicativo -->
+    <div id="app-container" class="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
+
+        <!-- Seção do formulário de perfil -->
+        <div id="profile-form" class="p-8">
+            <h1 class="text-3xl font-bold text-center text-blue-900 mb-6">Meu Perfil GPS</h1>
+            <p class="text-center text-gray-600 mb-8">
+                Informe como podemos adaptar o site para você.
+            </p>
+
+            <form id="preferences-form">
+                <div class="space-y-4">
+                    <label class="flex items-center bg-blue-100 p-4 rounded-xl cursor-pointer shadow-sm">
+                        <input type="radio" name="disability" value="visual" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+                        <span class="ml-3 text-lg text-blue-900 font-medium">Deficiência Visual (com narrador)</span>
+                    </label>
+                    <label class="flex items-center bg-blue-100 p-4 rounded-xl cursor-pointer shadow-sm">
+                        <input type="radio" name="disability" value="auditory" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+                        <span class="ml-3 text-lg text-blue-900 font-medium">Deficiência Auditiva (com alertas visuais)</span>
+                    </label>
+                    <label class="flex items-center bg-blue-100 p-4 rounded-xl cursor-pointer shadow-sm">
+                        <input type="radio" name="disability" value="motor" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+                        <span class="ml-3 text-lg text-blue-900 font-medium">Deficiência Motora (com botões grandes)</span>
+                    </label>
+                    <label class="flex items-center bg-blue-100 p-4 rounded-xl cursor-pointer shadow-sm">
+                        <input type="radio" name="disability" value="daltonism" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+                        <span class="ml-3 text-lg text-blue-900 font-medium">Daltonismo (cores de alto contraste)</span>
+                    </label>
+                    <label class="flex items-center bg-blue-100 p-4 rounded-xl cursor-pointer shadow-sm">
+                        <input type="radio" name="disability" value="none" checked class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+                        <span class="ml-3 text-lg text-blue-900 font-medium">Nenhuma</span>
+                    </label>
+                </div>
+                
+                <div class="mt-8">
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                        Salvar Preferências
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Seção do aplicativo de navegação -->
+        <div id="navigation-app" class="p-8 hidden">
+            <h2 class="text-3xl font-bold text-center text-blue-900 mb-6">Onde você quer ir?</h2>
+            
+            <div class="flex flex-col space-y-4">
+                <div class="relative">
+                    <input type="text" id="destination-input" class="w-full p-4 pl-4 pr-12 text-lg rounded-xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300 ease-in-out" placeholder="Ex: Rua das Rosas, 123">
+                    <!-- Botão de microfone para reconhecimento de voz -->
+                    <button id="voice-input-btn" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3.92-3.41 7.1-7.78 6.96-4.37.14-7.77-3.04-7.78-6.96h-2c.01 4.54 3.78 8.04 8.23 8.04v3.08h2.09v-3.08c4.45 0 8.22-3.5 8.23-8.04h-2z"/>
+                        </svg>
+                    </button>
+                </div>
+                <button id="find-route-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Buscar Rota
+                </button>
+            </div>
+
+            <!-- Div para a exibição do passo atual da rota -->
+            <div id="current-step-display" class="mt-8 space-y-4 hidden">
+                <!-- O passo atual da rota simulada será inserido aqui -->
+            </div>
+
+            <!-- Div para o mapa simulado -->
+            <div class="mt-8">
+                <h3 class="text-xl font-semibold text-blue-900 mb-4">Mapa da Rota</h3>
+                <div class="w-full h-64 border-blue-300 rounded-xl">
+                    <canvas id="map-canvas" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Botão para avançar para o próximo passo -->
+            <div class="mt-8 hidden" id="next-step-container">
+                <button id="next-step-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Próximo Passo
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Modal de mensagem (substituto para alert()) -->
+        <div id="message-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+            <div id="modal-content" class="bg-white p-6 rounded-xl shadow-xl w-full max-w-sm text-center">
+                <p id="modal-text" class="text-lg text-gray-800 mb-4"></p>
+                <button id="close-modal-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out">
+                    Ok
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Variáveis de estado para as preferências do usuário
+        let isVisuallyImpaired = false;
+        let isColorblind = false;
+        let isAuditoryImpaired = false;
+        let isMotorImpaired = false;
+        let currentStepIndex = 0;
+        let userLocation = null;
+
+        // Elementos do DOM
+        const appContainer = document.getElementById('app-container');
+        const profileForm = document.getElementById('profile-form');
+        const navigationApp = document.getElementById('navigation-app');
+        const preferencesForm = document.getElementById('preferences-form');
+        const destinationInput = document.getElementById('destination-input');
+        const voiceInputBtn = document.getElementById('voice-input-btn');
+        const findRouteBtn = document.getElementById('find-route-btn');
+        const currentStepDisplay = document.getElementById('current-step-display');
+        const nextStepContainer = document.getElementById('next-step-container');
+        const nextStepBtn = document.getElementById('next-step-btn');
+        const messageModal = document.getElementById('message-modal');
+        const modalText = document.getElementById('modal-text');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalContent = document.getElementById('modal-content');
+        const mapCanvas = document.getElementById('map-canvas');
+        const ctx = mapCanvas.getContext('2d');
+
+        // Dados simulados da rota e seus pontos no mapa
+        const routeSteps = [
+            {
+                text: 'Iniciando rota. Siga em frente na Rua Principal.',
+                voiceText: 'Iniciando rota. Siga em frente na Rua Principal.',
+                visualAlert: 'Rota iniciada! Siga em frente.',
+                icon: '➡️',
+            },
+            {
+                text: 'Vire à esquerda na próxima rua, Rua das Rosas.',
+                voiceText: 'Atenção, vire à esquerda na Rua das Rosas.',
+                visualAlert: 'Atenção! Vire à esquerda!',
+                icon: '⬅️',
+            },
+            {
+                text: 'Ponto de referência: você passou pela padaria. Em 50 metros, prepare-se para atravessar a rua.',
+                voiceText: 'Passando pela padaria. Em cinquenta metros, prepare-se para atravessar a rua.',
+                visualAlert: 'Padaria. 50 metros para atravessar.',
+                icon: '🚶‍♂️',
+            },
+            {
+                text: 'Para continuar, pegue o ônibus 254 no ponto à sua direita. O próximo ônibus chegará em aproximadamente 5 minutos.',
+                voiceText: 'Pegue o ônibus duzentos e cinquenta e quatro. O próximo chegará em cinco minutos.',
+                visualAlert: 'Ônibus 254. Chega em 5 minutos.',
+                icon: '🚌',
+            },
+            {
+                text: 'Desça na quinta parada. Fique atento ao aviso sonoro.',
+                voiceText: 'Desça na quinta parada.',
+                visualAlert: 'Desça na 5ª parada.',
+                icon: '🛑',
+            },
+            {
+                text: 'Chegando ao seu destino. Caminhe por mais 10 metros e você chegará à porta.',
+                voiceText: 'Você chegou ao seu destino! Fim da rota.',
+                visualAlert: 'Chegou!',
+                icon: '🏁',
+            }
+        ];
+        
+        // Coordenadas simuladas para o mapa
+        const simulatedMapPoints = [
+            { x: 50, y: mapCanvas.height - 50 },
+            { x: mapCanvas.width / 4, y: mapCanvas.height - 50 },
+            { x: mapCanvas.width / 4, y: mapCanvas.height / 2 },
+            { x: mapCanvas.width - 50, y: mapCanvas.height / 2 },
+            { x: mapCanvas.width - 50, y: 50 }
+        ];
+
+        // Função para mostrar o modal de mensagem (usado para alertas visuais)
+        function showMessage(message) {
+            modalText.textContent = message;
+            if (isAuditoryImpaired) {
+                // Estilo para o modo auditivo: texto grande e fundo vibrante
+                modalContent.classList.add('bg-blue-600', 'text-white', 'text-2xl', 'p-8');
+                modalText.classList.remove('text-gray-800');
+            } else {
+                modalContent.classList.remove('bg-blue-600', 'text-white', 'text-2xl', 'p-8');
+                modalText.classList.add('text-gray-800');
+            }
+            messageModal.classList.remove('hidden');
+        }
+
+        // Função para esconder o modal de mensagem
+        function hideMessage() {
+            messageModal.classList.add('hidden');
+        }
+
+        // Função para acionar o narrador de voz
+        function speak(text) {
+            if (isVisuallyImpaired && 'speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'pt-BR';
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Função para desenhar a rota progressivamente no canvas
+        function drawSimulatedRoute() {
+            ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+            
+            // Define a cor e a espessura da linha
+            ctx.strokeStyle = isColorblind ? '#fca311' : '#2563EB';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Verifica se há uma localização do usuário para o ponto de partida
+            const startPoint = userLocation ? { x: 50, y: mapCanvas.height - 50 } : simulatedMapPoints[0];
+            const routePoints = [startPoint, ...simulatedMapPoints];
+
+            // Desenha o caminho percorrido até o ponto atual
+            ctx.beginPath();
+            ctx.moveTo(routePoints[0].x, routePoints[0].y);
+            for (let i = 1; i <= currentStepIndex; i++) {
+                ctx.lineTo(routePoints[i].x, routePoints[i].y);
+            }
+            ctx.stroke();
+
+            // Adiciona um círculo no ponto de partida
+            ctx.fillStyle = isColorblind ? '#fca311' : '#2563EB';
+            ctx.beginPath();
+            ctx.arc(routePoints[0].x, routePoints[0].y, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Adiciona um círculo maior no ponto atual
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(routePoints[currentStepIndex].x, routePoints[currentStepIndex].y, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Função para avançar para o próximo passo da rota
+        function nextStep() {
+            if (currentStepIndex >= routeSteps.length -1) {
+                // Rota finalizada
+                currentStepDisplay.innerHTML = `
+                    <div class="flex items-center space-x-4 p-4 rounded-xl shadow-sm bg-green-100">
+                        <div class="text-3xl">🎉</div>
+                        <p class="text-lg text-green-900 font-semibold">${routeSteps[currentStepIndex].text}</p>
+                    </div>
+                `;
+                speak(routeSteps[currentStepIndex].voiceText);
+                nextStepContainer.classList.add('hidden');
+                return;
+            }
+
+            const step = routeSteps[currentStepIndex];
+
+            // Atualiza a exibição do passo atual
+            currentStepDisplay.innerHTML = `
+                <div class="flex items-center space-x-4 p-4 rounded-xl transition duration-300 ease-in-out shadow-sm bg-blue-100 hover:bg-blue-200">
+                    <div class="text-3xl">${step.icon}</div>
+                    <p class="text-lg text-blue-900">${step.text}</p>
+                </div>
+            `;
+            
+            // Aciona as acessibilidades
+            speak(step.voiceText);
+            if (isAuditoryImpaired) {
+                showMessage(step.visualAlert);
+            }
+            
+            // Atualiza o mapa
+            drawSimulatedRoute();
+            
+            currentStepIndex++;
+        }
+        
+        // Função para iniciar o reconhecimento de voz
+        function startVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                showMessage('Seu navegador não suporta reconhecimento de voz.');
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            
+            speak('Ouvindo. Diga o seu destino agora.');
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                destinationInput.value = transcript;
+                speak(`Você disse: ${transcript}.`);
+            };
+
+            recognition.onspeechend = () => {
+                recognition.stop();
+            };
+
+            recognition.onerror = (event) => {
+                recognition.stop();
+                showMessage(`Erro de reconhecimento de voz: ${event.error}`);
+            };
+
+            recognition.start();
+        }
+
+        // Ouve o evento de envio do formulário de preferências
+        preferencesForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const selectedDisability = document.querySelector('input[name="disability"]:checked').value;
+
+            // Zera as preferências e atualiza com a nova seleção
+            isVisuallyImpaired = false;
+            isColorblind = false;
+            isAuditoryImpaired = false;
+            isMotorImpaired = false;
+
+            switch (selectedDisability) {
+                case 'visual':
+                    isVisuallyImpaired = true;
+                    break;
+                case 'auditory':
+                    isAuditoryImpaired = true;
+                    break;
+                case 'motor':
+                    isMotorImpaired = true;
+                    break;
+                case 'daltonism':
+                    isColorblind = true;
+                    break;
+                default:
+                    break;
+            }
+
+            // Aplica os estilos de modo daltônico e motor, se necessário
+            if (isColorblind) {
+                appContainer.classList.add('colorblind-mode');
+            } else {
+                appContainer.classList.remove('colorblind-mode');
+            }
+
+            if (isMotorImpaired) {
+                appContainer.classList.add('motor-impaired-mode');
+            } else {
+                appContainer.classList.remove('motor-impaired-mode');
+            }
+
+            profileForm.classList.add('hidden');
+            navigationApp.classList.remove('hidden');
+            currentStepIndex = 0; // Reseta o índice da rota
+            currentStepDisplay.classList.add('hidden');
+            nextStepContainer.classList.add('hidden');
+            
+            speak('Formulário preenchido. Bem-vindo ao GPS Inclusivo. Para onde você quer ir?');
+        });
+
+        // Ouve o evento de clique no botão de busca de rota
+        findRouteBtn.addEventListener('click', () => {
+            const destination = destinationInput.value.trim();
+
+            if (destination === '') {
+                showMessage('Por favor, digite ou fale um destino para iniciar a rota.');
+                return;
+            }
+
+            // Pede a localização do usuário antes de iniciar a rota
+            if (navigator.geolocation) {
+                speak('Aguarde, obtendo sua localização.');
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = position.coords;
+                        speak('Localização obtida. Rota calculada.');
+                        // Inicia a rota após obter a localização
+                        currentStepIndex = 0;
+                        currentStepDisplay.classList.remove('hidden');
+                        nextStepContainer.classList.remove('hidden');
+                        mapCanvas.width = mapCanvas.offsetWidth;
+                        mapCanvas.height = mapCanvas.offsetHeight;
+                        nextStep();
+                    },
+                    (error) => {
+                        console.error('Erro ao obter a localização:', error);
+                        speak('Não foi possível obter sua localização. A rota será iniciada a partir de um ponto padrão.');
+                        userLocation = null; // Garante que a localização não seja usada se houver erro
+                        // Inicia a rota mesmo sem a localização, usando um ponto padrão
+                        currentStepIndex = 0;
+                        currentStepDisplay.classList.remove('hidden');
+                        nextStepContainer.classList.remove('hidden');
+                        mapCanvas.width = mapCanvas.offsetWidth;
+                        mapCanvas.height = mapCanvas.offsetHeight;
+                        nextStep();
+                    }
+                );
+            } else {
+                speak('Seu navegador não suporta geolocalização. A rota será iniciada a partir de um ponto padrão.');
+                userLocation = null;
+                currentStepIndex = 0;
+                currentStepDisplay.classList.remove('hidden');
+                nextStepContainer.classList.remove('hidden');
+                mapCanvas.width = mapCanvas.offsetWidth;
+                mapCanvas.height = mapCanvas.offsetHeight;
+                nextStep();
+            }
+        });
+        
+        // Ouve o evento de clique no botão de microfone
+        voiceInputBtn.addEventListener('click', () => {
+            startVoiceRecognition();
+        });
+
+        // Ouve o evento de clique no botão de fechar modal
+        closeModalBtn.addEventListener('click', hideMessage);
+
+        // Ouve o evento de clique no botão "Próximo Passo"
+        nextStepBtn.addEventListener('click', nextStep);
+
+        // Ajusta o tamanho do canvas quando a janela é redimensionada
+        window.addEventListener('resize', () => {
+            mapCanvas.width = mapCanvas.offsetWidth;
+            mapCanvas.height = mapCanvas.offsetHeight;
+            drawSimulatedRoute();
+        });
+        
+        // Inicializa o tamanho do canvas na primeira carga
+        window.addEventListener('load', () => {
+            mapCanvas.width = mapCanvas.offsetWidth;
+            mapCanvas.height = mapCanvas.offsetHeight;
+        });
+
+    </script>
+</body>
+</html>
