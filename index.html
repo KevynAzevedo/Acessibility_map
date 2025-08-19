@@ -48,12 +48,13 @@
             padding-bottom: 1rem;
         }
         
-        /* Estilos para o canvas do mapa */
-        #map-canvas {
+        /* Estilos para o iframe do mapa */
+        .map-container {
             border-radius: 1rem;
             box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
             border: 2px solid;
             transition: border-color 0.3s ease;
+            overflow: hidden;
         }
     </style>
 </head>
@@ -125,11 +126,20 @@
                 <!-- O passo atual da rota simulada será inserido aqui -->
             </div>
 
-            <!-- Div para o mapa simulado -->
+            <!-- Container do mapa -->
             <div class="mt-8">
                 <h3 class="text-xl font-semibold text-blue-900 mb-4">Mapa da Rota</h3>
-                <div class="w-full h-64 border-blue-300 rounded-xl">
-                    <canvas id="map-canvas" class="w-full h-full"></canvas>
+                <div class="map-container w-full h-64 border-blue-300">
+                    <!-- Iframe do Google Maps para exibir a rota dinâmica -->
+                    <iframe id="map-iframe"
+                      width="100%"
+                      height="100%"
+                      style="border:0"
+                      loading="lazy"
+                      allowfullscreen
+                      referrerpolicy="no-referrer-when-downgrade"
+                      src="">
+                    </iframe>
                 </div>
             </div>
 
@@ -163,6 +173,9 @@
         let currentStepIndex = 0;
         let userLocation = null;
 
+        // Chave da API do Google Maps (SUBSTITUA POR SUA PRÓPRIA CHAVE)
+        const GOOGLE_MAPS_API_KEY = "API_KEY";
+
         // Elementos do DOM
         const appContainer = document.getElementById('app-container');
         const profileForm = document.getElementById('profile-form');
@@ -178,56 +191,34 @@
         const modalText = document.getElementById('modal-text');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const modalContent = document.getElementById('modal-content');
-        const mapCanvas = document.getElementById('map-canvas');
-        const ctx = mapCanvas.getContext('2d');
+        const mapIframe = document.getElementById('map-iframe');
 
-        // Dados simulados da rota e seus pontos no mapa
+        // Dados simulados de passos da rota (a visualização agora é feita pela API do Google Maps)
         const routeSteps = [
             {
-                text: 'Iniciando rota. Siga em frente na Rua Principal.',
-                voiceText: 'Iniciando rota. Siga em frente na Rua Principal.',
-                visualAlert: 'Rota iniciada! Siga em frente.',
-                icon: '➡️',
+                text: 'Rota calculada. Siga as instruções no mapa para chegar ao seu destino.',
+                voiceText: 'Rota calculada. Siga as instruções no mapa para chegar ao seu destino.',
+                visualAlert: 'Rota calculada! Siga as instruções.',
+                icon: '🗺️',
             },
             {
-                text: 'Vire à esquerda na próxima rua, Rua das Rosas.',
-                voiceText: 'Atenção, vire à esquerda na Rua das Rosas.',
-                visualAlert: 'Atenção! Vire à esquerda!',
+                text: 'Próximo passo: vire à esquerda na próxima rua.',
+                voiceText: 'Atenção. Vire à esquerda na próxima rua.',
+                visualAlert: 'Vire à esquerda!',
                 icon: '⬅️',
             },
             {
-                text: 'Ponto de referência: você passou pela padaria. Em 50 metros, prepare-se para atravessar a rua.',
-                voiceText: 'Passando pela padaria. Em cinquenta metros, prepare-se para atravessar a rua.',
-                visualAlert: 'Padaria. 50 metros para atravessar.',
+                text: 'Você está no ponto de interesse: a padaria. A próxima instrução é em 50 metros.',
+                voiceText: 'Você está no ponto de interesse. A próxima instrução é em cinquenta metros.',
+                visualAlert: 'Padaria! 50 metros para a próxima instrução.',
                 icon: '🚶‍♂️',
             },
             {
-                text: 'Para continuar, pegue o ônibus 254 no ponto à sua direita. O próximo ônibus chegará em aproximadamente 5 minutos.',
-                voiceText: 'Pegue o ônibus duzentos e cinquenta e quatro. O próximo chegará em cinco minutos.',
-                visualAlert: 'Ônibus 254. Chega em 5 minutos.',
-                icon: '🚌',
-            },
-            {
-                text: 'Desça na quinta parada. Fique atento ao aviso sonoro.',
-                voiceText: 'Desça na quinta parada.',
-                visualAlert: 'Desça na 5ª parada.',
-                icon: '🛑',
-            },
-            {
-                text: 'Chegando ao seu destino. Caminhe por mais 10 metros e você chegará à porta.',
+                text: 'Você chegou ao seu destino. Fim da rota.',
                 voiceText: 'Você chegou ao seu destino! Fim da rota.',
-                visualAlert: 'Chegou!',
+                visualAlert: 'Chegou ao destino!',
                 icon: '🏁',
             }
-        ];
-        
-        // Coordenadas simuladas para o mapa
-        const simulatedMapPoints = [
-            { x: 50, y: mapCanvas.height - 50 },
-            { x: mapCanvas.width / 4, y: mapCanvas.height - 50 },
-            { x: mapCanvas.width / 4, y: mapCanvas.height / 2 },
-            { x: mapCanvas.width - 50, y: mapCanvas.height / 2 },
-            { x: mapCanvas.width - 50, y: 50 }
         ];
 
         // Função para mostrar o modal de mensagem (usado para alertas visuais)
@@ -256,41 +247,6 @@
                 utterance.lang = 'pt-BR';
                 speechSynthesis.speak(utterance);
             }
-        }
-
-        // Função para desenhar a rota progressivamente no canvas
-        function drawSimulatedRoute() {
-            ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
-            
-            // Define a cor e a espessura da linha
-            ctx.strokeStyle = isColorblind ? '#fca311' : '#2563EB';
-            ctx.lineWidth = 6;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            // Verifica se há uma localização do usuário para o ponto de partida
-            const startPoint = userLocation ? { x: 50, y: mapCanvas.height - 50 } : simulatedMapPoints[0];
-            const routePoints = [startPoint, ...simulatedMapPoints];
-
-            // Desenha o caminho percorrido até o ponto atual
-            ctx.beginPath();
-            ctx.moveTo(routePoints[0].x, routePoints[0].y);
-            for (let i = 1; i <= currentStepIndex; i++) {
-                ctx.lineTo(routePoints[i].x, routePoints[i].y);
-            }
-            ctx.stroke();
-
-            // Adiciona um círculo no ponto de partida
-            ctx.fillStyle = isColorblind ? '#fca311' : '#2563EB';
-            ctx.beginPath();
-            ctx.arc(routePoints[0].x, routePoints[0].y, 8, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Adiciona um círculo maior no ponto atual
-            ctx.fillStyle = 'red';
-            ctx.beginPath();
-            ctx.arc(routePoints[currentStepIndex].x, routePoints[currentStepIndex].y, 10, 0, Math.PI * 2);
-            ctx.fill();
         }
 
         // Função para avançar para o próximo passo da rota
@@ -323,9 +279,6 @@
             if (isAuditoryImpaired) {
                 showMessage(step.visualAlert);
             }
-            
-            // Atualiza o mapa
-            drawSimulatedRoute();
             
             currentStepIndex++;
         }
@@ -406,9 +359,6 @@
 
             profileForm.classList.add('hidden');
             navigationApp.classList.remove('hidden');
-            currentStepIndex = 0; // Reseta o índice da rota
-            currentStepDisplay.classList.add('hidden');
-            nextStepContainer.classList.add('hidden');
             
             speak('Formulário preenchido. Bem-vindo ao GPS Inclusivo. Para onde você quer ir?');
         });
@@ -429,35 +379,45 @@
                     (position) => {
                         userLocation = position.coords;
                         speak('Localização obtida. Rota calculada.');
+
+                        // Constrói a URL da API do Google Maps com a localização e destino
+                        const mapUrl = `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${userLocation.latitude},${userLocation.longitude}&destination=${encodeURIComponent(destination)}&mode=walking`;
+                        mapIframe.src = mapUrl;
+
                         // Inicia a rota após obter a localização
                         currentStepIndex = 0;
                         currentStepDisplay.classList.remove('hidden');
                         nextStepContainer.classList.remove('hidden');
-                        mapCanvas.width = mapCanvas.offsetWidth;
-                        mapCanvas.height = mapCanvas.offsetHeight;
                         nextStep();
                     },
                     (error) => {
                         console.error('Erro ao obter a localização:', error);
                         speak('Não foi possível obter sua localização. A rota será iniciada a partir de um ponto padrão.');
                         userLocation = null; // Garante que a localização não seja usada se houver erro
-                        // Inicia a rota mesmo sem a localização, usando um ponto padrão
+                        
+                        // Constrói a URL com um ponto de origem genérico
+                        const genericOrigin = 'Rua das Laranjeiras, 100';
+                        const mapUrl = `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${encodeURIComponent(genericOrigin)}&destination=${encodeURIComponent(destination)}&mode=walking`;
+                        mapIframe.src = mapUrl;
+
                         currentStepIndex = 0;
                         currentStepDisplay.classList.remove('hidden');
                         nextStepContainer.classList.remove('hidden');
-                        mapCanvas.width = mapCanvas.offsetWidth;
-                        mapCanvas.height = mapCanvas.offsetHeight;
                         nextStep();
                     }
                 );
             } else {
                 speak('Seu navegador não suporta geolocalização. A rota será iniciada a partir de um ponto padrão.');
                 userLocation = null;
+                
+                // Constrói a URL com um ponto de origem genérico
+                const genericOrigin = 'Rua das Laranjeiras, 100';
+                const mapUrl = `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${encodeURIComponent(genericOrigin)}&destination=${encodeURIComponent(destination)}&mode=walking`;
+                mapIframe.src = mapUrl;
+
                 currentStepIndex = 0;
                 currentStepDisplay.classList.remove('hidden');
                 nextStepContainer.classList.remove('hidden');
-                mapCanvas.width = mapCanvas.offsetWidth;
-                mapCanvas.height = mapCanvas.offsetHeight;
                 nextStep();
             }
         });
@@ -472,19 +432,6 @@
 
         // Ouve o evento de clique no botão "Próximo Passo"
         nextStepBtn.addEventListener('click', nextStep);
-
-        // Ajusta o tamanho do canvas quando a janela é redimensionada
-        window.addEventListener('resize', () => {
-            mapCanvas.width = mapCanvas.offsetWidth;
-            mapCanvas.height = mapCanvas.offsetHeight;
-            drawSimulatedRoute();
-        });
-        
-        // Inicializa o tamanho do canvas na primeira carga
-        window.addEventListener('load', () => {
-            mapCanvas.width = mapCanvas.offsetWidth;
-            mapCanvas.height = mapCanvas.offsetHeight;
-        });
 
     </script>
 </body>
