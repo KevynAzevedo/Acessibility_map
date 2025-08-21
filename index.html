@@ -60,6 +60,27 @@
             padding-top: 1rem;
             padding-bottom: 1rem;
         }
+
+        /* Estilos para a lista de sugestões */
+        #suggestions-list {
+            position: absolute;
+            z-index: 10;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0.5rem;
+            width: calc(100% - 2rem);
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        #suggestions-list li {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #suggestions-list li:hover {
+            background-color: #f3f4f6;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -113,6 +134,8 @@
             <div class="flex flex-col space-y-4">
                 <div class="relative">
                     <input type="text" id="destination-input" class="w-full p-4 pl-4 pr-12 text-lg rounded-xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300 ease-in-out" placeholder="Ex: Rua das Rosas, 123">
+                    <!-- Lista de sugestões de endereço -->
+                    <ul id="suggestions-list" class="absolute hidden"></ul>
                     <!-- Botão de microfone para reconhecimento de voz -->
                     <button id="voice-input-btn" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
@@ -127,7 +150,13 @@
 
             <!-- Div para a exibição do passo atual da rota -->
             <div id="current-step-display" class="mt-8 space-y-4 hidden">
-                <!-- O passo atual da rota simulada será inserido aqui -->
+                <!-- O passo atual da rota será inserido aqui -->
+            </div>
+
+            <!-- Container dos botões de navegação do mapa -->
+            <div id="map-controls-container" class="mt-8 flex justify-center space-x-4 hidden">
+                <button id="center-user-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Minha Localização</button>
+                <button id="center-dest-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Meu Destino</button>
             </div>
 
             <!-- Container do mapa -->
@@ -136,14 +165,13 @@
                 <!-- Novo container para o mapa do Leaflet -->
                 <div id="mapa"></div>
             </div>
-
+            
             <!-- Botão para avançar para o próximo passo -->
             <div class="mt-8 hidden" id="next-step-container">
                 <button id="next-step-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                     Próximo Passo
                 </button>
             </div>
-
         </div>
 
         <!-- Modal de mensagem (substituto para alert()) -->
@@ -155,7 +183,6 @@
                 </button>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -166,6 +193,8 @@
         let isMotorImpaired = false;
         let currentStepIndex = 0;
         let userLocation = null;
+        let destinationLocation = null;
+        let routeSteps = [];
         let mapInstance = null; // Instância do mapa Leaflet
         let userMarker = null; // Marcador do usuário
         let destinationMarker = null; // Marcador do destino
@@ -177,6 +206,7 @@
         const navigationApp = document.getElementById('navigation-app');
         const preferencesForm = document.getElementById('preferences-form');
         const destinationInput = document.getElementById('destination-input');
+        const suggestionsList = document.getElementById('suggestions-list');
         const voiceInputBtn = document.getElementById('voice-input-btn');
         const findRouteBtn = document.getElementById('find-route-btn');
         const currentStepDisplay = document.getElementById('current-step-display');
@@ -186,34 +216,9 @@
         const modalText = document.getElementById('modal-text');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const modalContent = document.getElementById('modal-content');
-
-        // Dados simulados de passos da rota (ainda usados para as instruções textuais)
-        const routeSteps = [
-            {
-                text: 'Rota calculada. Siga as instruções no mapa para chegar ao seu destino.',
-                voiceText: 'Rota calculada. Siga as instruções no mapa para chegar ao seu destino.',
-                visualAlert: 'Rota calculada! Siga as instruções.',
-                icon: '🗺️',
-            },
-            {
-                text: 'Próximo passo: vire à esquerda na próxima rua.',
-                voiceText: 'Atenção. Vire à esquerda na próxima rua.',
-                visualAlert: 'Vire à esquerda!',
-                icon: '⬅️',
-            },
-            {
-                text: 'Você está no ponto de interesse: a padaria. A próxima instrução é em 50 metros.',
-                voiceText: 'Você está no ponto de interesse. A próxima instrução é em cinquenta metros.',
-                visualAlert: 'Padaria! 50 metros para a próxima instrução.',
-                icon: '🚶‍♂️',
-            },
-            {
-                text: 'Você chegou ao seu destino. Fim da rota.',
-                voiceText: 'Você chegou ao seu destino! Fim da rota.',
-                visualAlert: 'Chegou ao destino!',
-                icon: '🏁',
-            }
-        ];
+        const mapControlsContainer = document.getElementById('map-controls-container');
+        const centerUserBtn = document.getElementById('center-user-btn');
+        const centerDestBtn = document.getElementById('center-dest-btn');
 
         // Função para mostrar o modal de mensagem (usado para alertas visuais)
         function showMessage(message) {
@@ -243,35 +248,38 @@
             }
         }
 
-        // Função para avançar para o próximo passo da rota (simulado)
+        // Função para avançar para o próximo passo da rota
         function nextStep() {
             if (currentStepIndex >= routeSteps.length -1) {
                 // Rota finalizada
                 currentStepDisplay.innerHTML = `
                     <div class="flex items-center space-x-4 p-4 rounded-xl shadow-sm bg-green-100">
                         <div class="text-3xl">🎉</div>
-                        <p class="text-lg text-green-900 font-semibold">${routeSteps[currentStepIndex].text}</p>
+                        <p class="text-lg text-green-900 font-semibold">Você chegou ao seu destino. Fim da rota.</p>
                     </div>
                 `;
-                speak(routeSteps[currentStepIndex].voiceText);
+                speak('Você chegou ao seu destino! Fim da rota.');
                 nextStepContainer.classList.add('hidden');
                 return;
             }
 
             const step = routeSteps[currentStepIndex];
+            const text = step.maneuver.instruction;
+            const voiceText = text; // Pode ser aprimorado com lógica de fala mais complexa
+            const visualAlert = text; // Mesma coisa
 
             // Atualiza a exibição do passo atual
             currentStepDisplay.innerHTML = `
                 <div class="flex items-center space-x-4 p-4 rounded-xl transition duration-300 ease-in-out shadow-sm bg-blue-100 hover:bg-blue-200">
-                    <div class="text-3xl">${step.icon}</div>
-                    <p class="text-lg text-blue-900">${step.text}</p>
+                    <div class="text-3xl">➡️</div>
+                    <p class="text-lg text-blue-900">${text}</p>
                 </div>
             `;
             
             // Aciona as acessibilidades
-            speak(step.voiceText);
+            speak(voiceText);
             if (isAuditoryImpaired) {
-                showMessage(step.visualAlert);
+                showMessage(visualAlert);
             }
             
             currentStepIndex++;
@@ -296,6 +304,7 @@
                 const transcript = event.results[0][0].transcript;
                 destinationInput.value = transcript;
                 speak(`Você disse: ${transcript}.`);
+                fetchSuggestions(transcript); // Chama a busca de sugestões após o reconhecimento
             };
 
             recognition.onspeechend = () => {
@@ -343,6 +352,9 @@
                     
                     routePolyline = L.polyline(routeCoordinates, {color: '#3b82f6', weight: 6, opacity: 0.7}).addTo(mapInstance);
                     
+                    // Extrai os passos da rota da API
+                    routeSteps = route.legs[0].steps;
+
                     // Ajusta o zoom para a rota inteira
                     mapInstance.fitBounds(routePolyline.getBounds());
                     
@@ -356,6 +368,42 @@
             }
         }
         
+        // Função para buscar e exibir sugestões de endereço
+        async function fetchSuggestions(query) {
+            if (query.length < 3) {
+                suggestionsList.classList.add('hidden');
+                return;
+            }
+
+            const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
+            try {
+                const response = await fetch(nominatimUrl);
+                const data = await response.json();
+                
+                if (data.length > 0) {
+                    suggestionsList.innerHTML = ''; // Limpa a lista
+                    suggestionsList.classList.remove('hidden');
+                    data.forEach(item => {
+                        const li = document.createElement('li');
+                        li.textContent = item.display_name;
+                        li.dataset.lat = item.lat;
+                        li.dataset.lon = item.lon;
+                        li.addEventListener('click', () => {
+                            destinationInput.value = item.display_name;
+                            destinationLocation = [parseFloat(item.lat), parseFloat(item.lon)];
+                            suggestionsList.classList.add('hidden');
+                        });
+                        suggestionsList.appendChild(li);
+                    });
+                } else {
+                    suggestionsList.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error("Erro ao buscar sugestões:", error);
+                suggestionsList.classList.add('hidden');
+            }
+        }
+
         // Ouve o evento de envio do formulário de preferências
         preferencesForm.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -400,72 +448,19 @@
             profileForm.classList.add('hidden');
             navigationApp.classList.remove('hidden');
             
-            speak('Formulário preenchido. Bem-vindo ao GPS Inclusivo. Para onde você quer ir?');
-            initMap(); // Inicializa o mapa quando o aplicativo é exibido
-        });
-
-        // Ouve o evento de clique no botão de busca de rota
-        findRouteBtn.addEventListener('click', () => {
-            const destination = destinationInput.value.trim();
-
-            if (destination === '') {
-                showMessage('Por favor, digite ou fale um destino para iniciar a rota.');
-                return;
-            }
-
-            speak('Aguarde, obtendo sua localização e calculando a rota.');
+            speak('Formulário preenchido. Bem-vindo ao GPS Inclusivo. Obtendo sua localização...');
+            initMap();
             
-            // Pede a localização do usuário
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        const originCoords = [position.coords.latitude, position.coords.longitude];
-                        userLocation = originCoords;
-                        
-                        // Adiciona o marcador do usuário
-                        if (userMarker) mapInstance.removeLayer(userMarker);
-                        userMarker = L.marker(originCoords).addTo(mapInstance)
+                    (position) => {
+                        userLocation = [position.coords.latitude, position.coords.longitude];
+                        mapInstance.setView(userLocation, 15);
+                        userMarker = L.marker(userLocation).addTo(mapInstance)
                             .bindPopup('Sua localização').openPopup();
-
-                        // Geocodificação do destino usando Nominatim
-                        const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`;
-                        try {
-                            const response = await fetch(nominatimUrl);
-                            const data = await response.json();
-                            
-                            if (data.length > 0) {
-                                const destLat = data[0].lat;
-                                const destLon = data[0].lon;
-                                const destinationCoords = [destLat, destLon];
-                                
-                                // Adiciona o marcador do destino
-                                if (destinationMarker) mapInstance.removeLayer(destinationMarker);
-                                destinationMarker = L.marker(destinationCoords).addTo(mapInstance)
-                                    .bindPopup('Seu destino').openPopup();
-
-                                const routeFound = await getRoute(originCoords, destinationCoords);
-                                
-                                if (routeFound) {
-                                    speak('Rota calculada com sucesso.');
-                                } else {
-                                    speak('Não foi possível calcular a rota para este destino.');
-                                }
-                            } else {
-                                speak('Não foi possível encontrar as coordenadas do seu destino. Tente um endereço mais específico.');
-                            }
-                        } catch (error) {
-                            console.error("Erro na geocodificação:", error);
-                            speak('Erro ao encontrar as coordenadas do destino. Verifique sua conexão.');
-                        }
-
-                        // Inicia os passos simulados
-                        currentStepIndex = 0;
-                        currentStepDisplay.classList.remove('hidden');
-                        nextStepContainer.classList.remove('hidden');
-                        nextStep();
+                        speak('Localização encontrada. Para onde você quer ir?');
                     },
                     (error) => {
-                        // O erro {} é genérico. Vamos usar o código de erro para fornecer uma mensagem mais específica.
                         console.error('Erro ao obter a localização:', error);
                         let errorMessage = 'Não foi possível obter sua localização. Por favor, tente novamente.';
                         switch (error.code) {
@@ -488,7 +483,70 @@
                 showMessage('Seu navegador não suporta geolocalização.');
             }
         });
+
+        // Ouve o evento de clique no botão de busca de rota
+        findRouteBtn.addEventListener('click', async () => {
+            const destination = destinationInput.value.trim();
+
+            if (destination === '') {
+                showMessage('Por favor, digite ou fale um destino para iniciar a rota.');
+                return;
+            }
+
+            if (!userLocation) {
+                showMessage('Não foi possível obter sua localização atual. Por favor, recarregue a página e permita a geolocalização.');
+                return;
+            }
+
+            speak('Aguarde, calculando a rota.');
+            
+            // Verifica se a localização de destino já foi selecionada da lista de sugestões
+            if (!destinationLocation) {
+                // Se não, faz a busca por geocodificação
+                const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`;
+                try {
+                    const response = await fetch(nominatimUrl);
+                    const data = await response.json();
+                    
+                    if (data.length > 0) {
+                        const destLat = data[0].lat;
+                        const destLon = data[0].lon;
+                        destinationLocation = [parseFloat(destLat), parseFloat(destLon)];
+                    } else {
+                        speak('Não foi possível encontrar as coordenadas do seu destino. Tente um endereço mais específico.');
+                        return;
+                    }
+                } catch (error) {
+                    console.error("Erro na geocodificação:", error);
+                    speak('Erro ao encontrar as coordenadas do destino. Verifique sua conexão.');
+                    return;
+                }
+            }
+
+            // Adiciona o marcador do destino
+            if (destinationMarker) mapInstance.removeLayer(destinationMarker);
+            destinationMarker = L.marker(destinationLocation).addTo(mapInstance)
+                .bindPopup('Seu destino').openPopup();
+
+            const routeFound = await getRoute(userLocation, destinationLocation);
+            
+            if (routeFound) {
+                speak('Rota calculada com sucesso.');
+                currentStepIndex = 0;
+                currentStepDisplay.classList.remove('hidden');
+                nextStepContainer.classList.remove('hidden');
+                mapControlsContainer.classList.remove('hidden');
+                nextStep();
+            } else {
+                speak('Não foi possível calcular a rota para este destino.');
+            }
+        });
         
+        // Ouve o evento de digitação no campo de destino
+        destinationInput.addEventListener('input', debounce(() => {
+            fetchSuggestions(destinationInput.value);
+        }, 300));
+
         // Ouve o evento de clique no botão de microfone
         voiceInputBtn.addEventListener('click', () => {
             startVoiceRecognition();
@@ -499,6 +557,30 @@
 
         // Ouve o evento de clique no botão "Próximo Passo"
         nextStepBtn.addEventListener('click', nextStep);
+
+        // Ouve o evento de clique no botão "Minha Localização"
+        centerUserBtn.addEventListener('click', () => {
+            if (userLocation) {
+                mapInstance.setView(userLocation, 15);
+            }
+        });
+
+        // Ouve o evento de clique no botão "Meu Destino"
+        centerDestBtn.addEventListener('click', () => {
+            if (destinationLocation) {
+                mapInstance.setView(destinationLocation, 15);
+            }
+        });
+
+        // Debounce function to limit API calls while typing
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), delay);
+            };
+        }
 
     </script>
 </body>
