@@ -6,11 +6,24 @@
     <title>GPS Inclusivo</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS e JS para OpenStreetMap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
             transition: background-color 0.3s ease;
+        }
+
+        /* Estilos para o mapa Leaflet */
+        #mapa {
+            height: 450px; /* Altura fixa para o mapa */
+            border-radius: 1rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            border: 2px solid;
+            transition: border-color 0.3s ease;
         }
 
         /* Estilos para o modo daltônico */
@@ -46,15 +59,6 @@
         .motor-impaired-mode button {
             padding-top: 1rem;
             padding-bottom: 1rem;
-        }
-        
-        /* Estilos para o iframe do mapa */
-        .map-container {
-            border-radius: 1rem;
-            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
-            border: 2px solid;
-            transition: border-color 0.3s ease;
-            overflow: hidden;
         }
     </style>
 </head>
@@ -129,18 +133,8 @@
             <!-- Container do mapa -->
             <div class="mt-8">
                 <h3 class="text-xl font-semibold text-blue-900 mb-4">Mapa da Rota</h3>
-                <div class="map-container w-full h-64 border-blue-300">
-                    <!-- Iframe do Google Maps para exibir a rota dinâmica -->
-                    <iframe id="map-iframe"
-                      width="100%"
-                      height="100%"
-                      style="border:0"
-                      loading="lazy"
-                      allowfullscreen
-                      referrerpolicy="no-referrer-when-downgrade"
-                      src="">
-                    </iframe>
-                </div>
+                <!-- Novo container para o mapa do Leaflet -->
+                <div id="mapa"></div>
             </div>
 
             <!-- Botão para avançar para o próximo passo -->
@@ -172,9 +166,10 @@
         let isMotorImpaired = false;
         let currentStepIndex = 0;
         let userLocation = null;
-
-        // Chave da API do Google Maps (SUBSTITUA POR SUA PRÓPRIA CHAVE)
-        const GOOGLE_MAPS_API_KEY = "API_KEY";
+        let mapInstance = null; // Instância do mapa Leaflet
+        let userMarker = null; // Marcador do usuário
+        let destinationMarker = null; // Marcador do destino
+        let routePolyline = null; // Linha da rota
 
         // Elementos do DOM
         const appContainer = document.getElementById('app-container');
@@ -191,9 +186,8 @@
         const modalText = document.getElementById('modal-text');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const modalContent = document.getElementById('modal-content');
-        const mapIframe = document.getElementById('map-iframe');
 
-        // Dados simulados de passos da rota (a visualização agora é feita pela API do Google Maps)
+        // Dados simulados de passos da rota (ainda usados para as instruções textuais)
         const routeSteps = [
             {
                 text: 'Rota calculada. Siga as instruções no mapa para chegar ao seu destino.',
@@ -249,7 +243,7 @@
             }
         }
 
-        // Função para avançar para o próximo passo da rota
+        // Função para avançar para o próximo passo da rota (simulado)
         function nextStep() {
             if (currentStepIndex >= routeSteps.length -1) {
                 // Rota finalizada
@@ -316,6 +310,52 @@
             recognition.start();
         }
 
+        // Função para inicializar o mapa Leaflet
+        function initMap() {
+            if (mapInstance) {
+                mapInstance.remove();
+            }
+            mapInstance = L.map('mapa').setView([-23.55052, -46.633308], 12); // Ponto padrão: São Paulo
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(mapInstance);
+        }
+
+        // Função para obter a rota e desenhá-la no mapa
+        async function getRoute(originCoords, destinationCoords) {
+            // Limpa a rota anterior
+            if (routePolyline) {
+                mapInstance.removeLayer(routePolyline);
+            }
+            // Converte as coordenadas para o formato lon,lat exigido pelo OSRM
+            const originStr = `${originCoords[1]},${originCoords[0]}`;
+            const destStr = `${destinationCoords[1]},${destinationCoords[0]}`;
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originStr};${destStr}?overview=full&geometries=geojson`;
+
+            try {
+                const response = await fetch(osrmUrl);
+                const data = await response.json();
+                
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    const routeCoordinates = route.geometry.coordinates.map(c => [c[1], c[0]]);
+                    
+                    routePolyline = L.polyline(routeCoordinates, {color: '#3b82f6', weight: 6, opacity: 0.7}).addTo(mapInstance);
+                    
+                    // Ajusta o zoom para a rota inteira
+                    mapInstance.fitBounds(routePolyline.getBounds());
+                    
+                    return true;
+                } else {
+                    return false;
+                }
+            } catch (error) {
+                console.error("Erro ao obter a rota:", error);
+                return false;
+            }
+        }
+        
         // Ouve o evento de envio do formulário de preferências
         preferencesForm.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -361,6 +401,7 @@
             navigationApp.classList.remove('hidden');
             
             speak('Formulário preenchido. Bem-vindo ao GPS Inclusivo. Para onde você quer ir?');
+            initMap(); // Inicializa o mapa quando o aplicativo é exibido
         });
 
         // Ouve o evento de clique no botão de busca de rota
@@ -372,53 +413,79 @@
                 return;
             }
 
-            // Pede a localização do usuário antes de iniciar a rota
+            speak('Aguarde, obtendo sua localização e calculando a rota.');
+            
+            // Pede a localização do usuário
             if (navigator.geolocation) {
-                speak('Aguarde, obtendo sua localização.');
                 navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        userLocation = position.coords;
-                        speak('Localização obtida. Rota calculada.');
+                    async (position) => {
+                        const originCoords = [position.coords.latitude, position.coords.longitude];
+                        userLocation = originCoords;
+                        
+                        // Adiciona o marcador do usuário
+                        if (userMarker) mapInstance.removeLayer(userMarker);
+                        userMarker = L.marker(originCoords).addTo(mapInstance)
+                            .bindPopup('Sua localização').openPopup();
 
-                        // Constrói a URL da API do Google Maps com a localização e destino
-                        const mapUrl = `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${userLocation.latitude},${userLocation.longitude}&destination=${encodeURIComponent(destination)}&mode=walking`;
-                        mapIframe.src = mapUrl;
+                        // Geocodificação do destino usando Nominatim
+                        const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`;
+                        try {
+                            const response = await fetch(nominatimUrl);
+                            const data = await response.json();
+                            
+                            if (data.length > 0) {
+                                const destLat = data[0].lat;
+                                const destLon = data[0].lon;
+                                const destinationCoords = [destLat, destLon];
+                                
+                                // Adiciona o marcador do destino
+                                if (destinationMarker) mapInstance.removeLayer(destinationMarker);
+                                destinationMarker = L.marker(destinationCoords).addTo(mapInstance)
+                                    .bindPopup('Seu destino').openPopup();
 
-                        // Inicia a rota após obter a localização
+                                const routeFound = await getRoute(originCoords, destinationCoords);
+                                
+                                if (routeFound) {
+                                    speak('Rota calculada com sucesso.');
+                                } else {
+                                    speak('Não foi possível calcular a rota para este destino.');
+                                }
+                            } else {
+                                speak('Não foi possível encontrar as coordenadas do seu destino. Tente um endereço mais específico.');
+                            }
+                        } catch (error) {
+                            console.error("Erro na geocodificação:", error);
+                            speak('Erro ao encontrar as coordenadas do destino. Verifique sua conexão.');
+                        }
+
+                        // Inicia os passos simulados
                         currentStepIndex = 0;
                         currentStepDisplay.classList.remove('hidden');
                         nextStepContainer.classList.remove('hidden');
                         nextStep();
                     },
                     (error) => {
+                        // O erro {} é genérico. Vamos usar o código de erro para fornecer uma mensagem mais específica.
                         console.error('Erro ao obter a localização:', error);
-                        speak('Não foi possível obter sua localização. A rota será iniciada a partir de um ponto padrão.');
-                        userLocation = null; // Garante que a localização não seja usada se houver erro
-                        
-                        // Constrói a URL com um ponto de origem genérico
-                        const genericOrigin = 'Rua das Laranjeiras, 100';
-                        const mapUrl = `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${encodeURIComponent(genericOrigin)}&destination=${encodeURIComponent(destination)}&mode=walking`;
-                        mapIframe.src = mapUrl;
-
-                        currentStepIndex = 0;
-                        currentStepDisplay.classList.remove('hidden');
-                        nextStepContainer.classList.remove('hidden');
-                        nextStep();
+                        let errorMessage = 'Não foi possível obter sua localização. Por favor, tente novamente.';
+                        switch (error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Você negou a permissão de geolocalização. Por favor, permita a localização para usar o aplicativo.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'As informações de localização não estão disponíveis no momento.';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'A solicitação de localização expirou. Verifique sua conexão e tente novamente.';
+                                break;
+                        }
+                        speak(errorMessage);
+                        showMessage(errorMessage);
                     }
                 );
             } else {
-                speak('Seu navegador não suporta geolocalização. A rota será iniciada a partir de um ponto padrão.');
-                userLocation = null;
-                
-                // Constrói a URL com um ponto de origem genérico
-                const genericOrigin = 'Rua das Laranjeiras, 100';
-                const mapUrl = `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${encodeURIComponent(genericOrigin)}&destination=${encodeURIComponent(destination)}&mode=walking`;
-                mapIframe.src = mapUrl;
-
-                currentStepIndex = 0;
-                currentStepDisplay.classList.remove('hidden');
-                nextStepContainer.classList.remove('hidden');
-                nextStep();
+                speak('Seu navegador não suporta geolocalização. Por favor, use um navegador compatível.');
+                showMessage('Seu navegador não suporta geolocalização.');
             }
         });
         
