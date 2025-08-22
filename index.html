@@ -26,14 +26,14 @@
             transition: border-color 0.3s ease;
         }
 
-        /* Estilos para o ícone de hospital */
+        /* Estilos para o ícone de hospital (cruz vermelha) */
         .hospital-icon {
-            font-size: 24px;
+            font-size: 18px; /* Tamanho da fonte diminuído */
             color: white;
-            background-color: #e3342f; /* Vermelho vibrante */
+            background-color: #ef4444; /* Vermelho vibrante do Tailwind CSS (red-500) */
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 30px; /* Largura diminuída */
+            height: 30px; /* Altura diminuída */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -125,7 +125,7 @@
                         <span class="ml-3 text-lg text-blue-900 font-medium">Deficiência Motora (com botões grandes)</span>
                     </label>
                     <label class="flex items-center bg-blue-100 p-4 rounded-xl cursor-pointer shadow-sm">
-                        <input type="radio" name="disability" value="daltonism" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+                        <input type="radio" name="disability" value="daltonism" class="form-radio h-5 w-5 text-blue-600 transition duration-15-in-out">
                         <span class="ml-3 text-lg text-blue-900 font-medium">Daltonismo (cores de alto contraste)</span>
                     </label>
                     <label class="flex items-center bg-blue-100 p-4 rounded-xl cursor-pointer shadow-sm">
@@ -172,7 +172,7 @@
             <div id="map-controls-container" class="mt-8 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 hidden">
                 <button id="center-user-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Minha Localização</button>
                 <button id="center-dest-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Meu Destino</button>
-                <button id="toggle-pois-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Exibir Hospitais</button>
+                <button id="toggle-pois-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Ocultar Hospitais</button>
             </div>
 
             <!-- Container do mapa -->
@@ -216,7 +216,7 @@
         let destinationMarker = null; // Marcador do destino
         let routePolyline = null; // Linha da rota
         let poiLayerGroup = null; // Grupo de camada para os POIs
-        let poisVisible = false; // Estado de visibilidade dos POIs
+        let poisVisible = true; // Estado de visibilidade dos POIs (agora inicia como verdadeiro)
 
         // Elementos do DOM
         const appContainer = document.getElementById('app-container');
@@ -239,13 +239,13 @@
         const centerDestBtn = document.getElementById('center-dest-btn');
         const togglePoisBtn = document.getElementById('toggle-pois-btn');
 
-        // Criação de ícone personalizado para hospitais
+        // Criação de ícone personalizado para hospitais (cruz vermelha)
         const hospitalIcon = L.divIcon({
             className: 'hospital-icon',
-            html: '⚕️', // Símbolo de medicina
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40]
+            html: '&#x271A;', // Símbolo de cruz vermelha
+            iconSize: [30, 30], // Tamanho do ícone ajustado
+            iconAnchor: [15, 30], // Ajuste do ponto de ancoragem para o novo tamanho
+            popupAnchor: [0, -30] // Ajuste da posição do popup para o novo tamanho
         });
 
         // Função para mostrar o modal de mensagem (usado para alertas visuais)
@@ -362,6 +362,9 @@
             
             // Inicializa a camada para os POIs
             poiLayerGroup = L.layerGroup().addTo(mapInstance);
+            
+            // Exibe os hospitais logo no início
+            fetchAndDisplayPOIs(mapInstance.getBounds());
 
             // Adiciona um listener para a mudança de visualização do mapa para buscar POIs
             mapInstance.on('moveend', () => {
