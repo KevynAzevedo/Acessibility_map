@@ -26,6 +26,21 @@
             transition: border-color 0.3s ease;
         }
 
+        /* Estilos para o ícone de hospital */
+        .hospital-icon {
+            font-size: 24px;
+            color: white;
+            background-color: #e3342f; /* Vermelho vibrante */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 2px solid white;
+        }
+
         /* Estilos para o modo daltônico */
         .colorblind-mode .bg-blue-600, .colorblind-mode .bg-blue-700 {
             background-color: #fca311; /* Laranja forte */
@@ -157,7 +172,7 @@
             <div id="map-controls-container" class="mt-8 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 hidden">
                 <button id="center-user-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Minha Localização</button>
                 <button id="center-dest-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Meu Destino</button>
-                <button id="toggle-pois-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Exibir Pontos de Interesse</button>
+                <button id="toggle-pois-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Exibir Hospitais</button>
             </div>
 
             <!-- Container do mapa -->
@@ -223,6 +238,15 @@
         const centerUserBtn = document.getElementById('center-user-btn');
         const centerDestBtn = document.getElementById('center-dest-btn');
         const togglePoisBtn = document.getElementById('toggle-pois-btn');
+
+        // Criação de ícone personalizado para hospitais
+        const hospitalIcon = L.divIcon({
+            className: 'hospital-icon',
+            html: '⚕️', // Símbolo de medicina
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+            popupAnchor: [0, -40]
+        });
 
         // Função para mostrar o modal de mensagem (usado para alertas visuais)
         function showMessage(message) {
@@ -347,20 +371,21 @@
             });
         }
 
-        // Função para buscar e exibir POIs no mapa
+        // Função para buscar e exibir hospitais no mapa
         async function fetchAndDisplayPOIs(bounds) {
             poiLayerGroup.clearLayers(); // Limpa os POIs antigos
             const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
             
-            // Overpass QL query para hospitais, mercados e shoppings
+            // Overpass QL query para hospitais
             const query = `
                 [out:json][timeout:25];
                 (
                     node["amenity"="hospital"](${bbox});
-                    node["shop"="supermarket"](${bbox});
-                    node["shop"="mall"](${bbox});
+                    way["amenity"="hospital"](${bbox});
                 );
                 out body;
+                >;
+                out skel qt;
             `;
 
             try {
@@ -372,9 +397,11 @@
 
                 if (data.elements && data.elements.length > 0) {
                     data.elements.forEach(element => {
-                        const name = element.tags.name || element.tags.shop || element.tags.amenity || 'Local Desconhecido';
-                        L.marker([element.lat, element.lon]).addTo(poiLayerGroup)
-                            .bindPopup(`<b>${name}</b><br>${element.tags.amenity || element.tags.shop}`);
+                        if (element.type === 'node') {
+                            const name = element.tags.name || 'Hospital Desconhecido';
+                            L.marker([element.lat, element.lon], {icon: hospitalIcon}).addTo(poiLayerGroup)
+                                .bindPopup(`<b>${name}</b><br>Hospital`);
+                        }
                     });
                 }
             } catch (error) {
@@ -594,17 +621,17 @@
             }
         });
         
-        // Função para alternar a exibição dos POIs
+        // Função para alternar a exibição dos POIs (agora apenas hospitais)
         function togglePOIs() {
             poisVisible = !poisVisible;
             if (poisVisible) {
                 fetchAndDisplayPOIs(mapInstance.getBounds());
-                togglePoisBtn.textContent = 'Ocultar Pontos de Interesse';
-                speak('Exibindo pontos de interesse.');
+                togglePoisBtn.textContent = 'Ocultar Hospitais';
+                speak('Exibindo hospitais.');
             } else {
                 poiLayerGroup.clearLayers();
-                togglePoisBtn.textContent = 'Exibir Pontos de Interesse';
-                speak('Pontos de interesse ocultados.');
+                togglePoisBtn.textContent = 'Exibir Hospitais';
+                speak('Hospitais ocultados.');
             }
         }
 
