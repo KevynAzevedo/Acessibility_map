@@ -26,19 +26,64 @@
             transition: border-color 0.3s ease;
         }
 
-        /* Estilos para o ícone de hospital (cruz vermelha) */
+        /* Estilos para o ícone de hospital (cruz vermelha) - Tamanho maior */
         .hospital-icon {
-            font-size: 18px; /* Tamanho da fonte diminuído */
+            font-size: 14px;
             color: white;
             background-color: #ef4444; /* Vermelho vibrante do Tailwind CSS (red-500) */
             border-radius: 50%;
-            width: 30px; /* Largura diminuída */
-            height: 30px; /* Altura diminuída */
+            width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 2px solid white;
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid white;
+        }
+
+        /* Estilos para o ícone de restaurante (garfo e faca) - Tamanho médio */
+        .restaurant-icon {
+            font-size: 14px;
+            color: white;
+            background-color: #10b981; /* Verde vibrante do Tailwind CSS (emerald-500) */
+            border-radius: 50%;
+            width: 22px; /* Tamanho ajustado, maior que os outros mas menor que o hospital */
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid white;
+        }
+
+        /* Estilos para o ícone de ponto de ônibus (ônibus) - Tamanho pequeno */
+        .bus-stop-icon {
+            font-size: 12px;
+            color: white;
+            background-color: #3b82f6; /* Azul vibrante do Tailwind CSS (blue-500) */
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid white;
+        }
+
+        /* Estilos para o ícone de semáforo (sinal de trânsito) - Tamanho pequeno */
+        .traffic-light-icon {
+            font-size: 16px;
+            color: white;
+            background-color: #d97706; /* Laranja vibrante do Tailwind CSS (orange-500) */
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid white;
         }
 
         /* Estilos para o modo daltônico */
@@ -153,9 +198,7 @@
                     <ul id="suggestions-list" class="absolute hidden"></ul>
                     <!-- Botão de microfone para reconhecimento de voz -->
                     <button id="voice-input-btn" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3.92-3.41 7.1-7.78 6.96-4.37.14-7.77-3.04-7.78-6.96h-2c.01 4.54 3.78 8.04 8.23 8.04v3.08h2.09v-3.08c4.45 0 8.22-3.5 8.23-8.04h-2z"/>
-                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
                     </button>
                 </div>
                 <button id="find-route-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
@@ -172,7 +215,8 @@
             <div id="map-controls-container" class="mt-8 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 hidden">
                 <button id="center-user-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Minha Localização</button>
                 <button id="center-dest-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Meu Destino</button>
-                <button id="toggle-pois-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Ocultar Hospitais</button>
+                <button id="toggle-pois-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Ocultar Pontos de Interesse</button>
+                <button id="toggle-night-mode-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Modo Noturno</button>
             </div>
 
             <!-- Container do mapa -->
@@ -217,6 +261,7 @@
         let routePolyline = null; // Linha da rota
         let poiLayerGroup = null; // Grupo de camada para os POIs
         let poisVisible = true; // Estado de visibilidade dos POIs (agora inicia como verdadeiro)
+        let isNightMode = false; // Estado do modo noturno
 
         // Elementos do DOM
         const appContainer = document.getElementById('app-container');
@@ -238,14 +283,43 @@
         const centerUserBtn = document.getElementById('center-user-btn');
         const centerDestBtn = document.getElementById('center-dest-btn');
         const togglePoisBtn = document.getElementById('toggle-pois-btn');
-
-        // Criação de ícone personalizado para hospitais (cruz vermelha)
+        const toggleNightModeBtn = document.getElementById('toggle-night-mode-btn');
+        
+        // --- Ícones de Pontos de Interesse (POIs) ---
+        // Criação de ícone personalizado para hospitais (cruz vermelha) - Tamanho maior
         const hospitalIcon = L.divIcon({
             className: 'hospital-icon',
             html: '&#x271A;', // Símbolo de cruz vermelha
-            iconSize: [30, 30], // Tamanho do ícone ajustado
-            iconAnchor: [15, 30], // Ajuste do ponto de ancoragem para o novo tamanho
-            popupAnchor: [0, -30] // Ajuste da posição do popup para o novo tamanho
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+            popupAnchor: [0, -24]
+        });
+
+        // Criação de ícone personalizado para restaurantes (garfo e faca) - Tamanho médio
+        const restaurantIcon = L.divIcon({
+            className: 'restaurant-icon',
+            html: '&#x1F37D;', // Símbolo de garfo e faca com prato
+            iconSize: [22, 22],
+            iconAnchor: [11, 22],
+            popupAnchor: [0, -22]
+        });
+
+        // Criação de ícone personalizado para pontos de ônibus (ônibus) - Tamanho pequeno
+        const busStopIcon = L.divIcon({
+            className: 'bus-stop-icon',
+            html: '&#x1F68C;', // Símbolo de ônibus
+            iconSize: [18, 18],
+            iconAnchor: [9, 18],
+            popupAnchor: [0, -18]
+        });
+
+        // Criação de ícone personalizado para semáforos (sinal de trânsito) - Tamanho pequeno
+        const trafficLightIcon = L.divIcon({
+            className: 'traffic-light-icon',
+            html: '&#x1F6A6;', // Símbolo de semáforo
+            iconSize: [18, 18],
+            iconAnchor: [9, 18],
+            popupAnchor: [0, -18]
         });
 
         // Função para mostrar o modal de mensagem (usado para alertas visuais)
@@ -353,17 +427,18 @@
                 mapInstance.remove();
             }
             mapInstance = L.map('mapa').setView([-23.55052, -46.633308], 12); // Ponto padrão: São Paulo
-
-            // Usa um tema de mapa mais limpo (CartoDB Positron)
+            
+            // Adiciona a camada de mapa padrão (clara)
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: 'abcd'
+                subdomains: 'abcd',
+                id: 'light-mode-tile-layer'
             }).addTo(mapInstance);
             
             // Inicializa a camada para os POIs
             poiLayerGroup = L.layerGroup().addTo(mapInstance);
             
-            // Exibe os hospitais logo no início
+            // Exibe os POIs logo no início
             fetchAndDisplayPOIs(mapInstance.getBounds());
 
             // Adiciona um listener para a mudança de visualização do mapa para buscar POIs
@@ -374,41 +449,107 @@
             });
         }
 
-        // Função para buscar e exibir hospitais no mapa
+        // Função para alternar o modo noturno do mapa
+        function toggleNightMode() {
+            isNightMode = !isNightMode;
+            if (isNightMode) {
+                // Adiciona a camada escura
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    id: 'dark-mode-tile-layer'
+                }).addTo(mapInstance);
+                // Remove a camada clara
+                mapInstance.eachLayer(layer => {
+                    if (layer.options.id === 'light-mode-tile-layer') {
+                        mapInstance.removeLayer(layer);
+                    }
+                });
+                toggleNightModeBtn.textContent = 'Modo Diurno';
+                document.body.classList.add('bg-gray-800');
+                appContainer.classList.add('bg-gray-900', 'text-white');
+                appContainer.classList.remove('bg-white');
+                speak('Modo noturno ativado.');
+
+            } else {
+                // Adiciona a camada clara
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    id: 'light-mode-tile-layer'
+                }).addTo(mapInstance);
+                // Remove a camada escura
+                mapInstance.eachLayer(layer => {
+                    if (layer.options.id === 'dark-mode-tile-layer') {
+                        mapInstance.removeLayer(layer);
+                    }
+                });
+                toggleNightModeBtn.textContent = 'Modo Noturno';
+                document.body.classList.remove('bg-gray-800');
+                appContainer.classList.remove('bg-gray-900', 'text-white');
+                appContainer.classList.add('bg-white');
+                speak('Modo noturno desativado.');
+            }
+        }
+
+        // Função para buscar e exibir os Pontos de Interesse (POIs) no mapa
         async function fetchAndDisplayPOIs(bounds) {
             poiLayerGroup.clearLayers(); // Limpa os POIs antigos
             const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
             
-            // Overpass QL query para hospitais
-            const query = `
-                [out:json][timeout:25];
-                (
-                    node["amenity"="hospital"](${bbox});
-                    way["amenity"="hospital"](${bbox});
-                );
-                out body;
-                >;
-                out skel qt;
-            `;
-
-            try {
-                const response = await fetch("https://overpass-api.de/api/interpreter", {
-                    method: 'POST',
-                    body: query
-                });
-                const data = await response.json();
-
-                if (data.elements && data.elements.length > 0) {
-                    data.elements.forEach(element => {
-                        if (element.type === 'node') {
-                            const name = element.tags.name || 'Hospital Desconhecido';
-                            L.marker([element.lat, element.lon], {icon: hospitalIcon}).addTo(poiLayerGroup)
-                                .bindPopup(`<b>${name}</b><br>Hospital`);
-                        }
+            // Fetch de POIs somente se o nível de zoom for alto
+            if (mapInstance.getZoom() >= 17) {
+                const highZoomQuery = `
+                    [out:json][timeout:25];
+                    (
+                        node["amenity"="hospital"](${bbox});
+                        way["amenity"="hospital"](${bbox});
+                        node["amenity"="restaurant"](${bbox});
+                        node["highway"="bus_stop"](${bbox});
+                        node["highway"="traffic_signals"](${bbox});
+                    );
+                    out body;
+                    >;
+                    out skel qt;
+                `;
+                
+                try {
+                    const highZoomResponse = await fetch("https://overpass-api.de/api/interpreter", {
+                        method: 'POST',
+                        body: highZoomQuery
                     });
+                    const highZoomData = await highZoomResponse.json();
+
+                    if (highZoomData.elements && highZoomData.elements.length > 0) {
+                        highZoomData.elements.forEach(element => {
+                            const name = element.tags.name || '';
+                            let icon;
+                            let popupText;
+
+                            if (element.tags.amenity === 'hospital') {
+                                icon = hospitalIcon;
+                                popupText = `<b>${name || 'Hospital Desconhecido'}</b><br>Hospital`;
+                            } else if (element.tags.amenity === 'restaurant') {
+                                icon = restaurantIcon;
+                                popupText = `<b>${name || 'Restaurante Desconhecido'}</b><br>Restaurante`;
+                            } else if (element.tags.highway === 'bus_stop') {
+                                icon = busStopIcon;
+                                popupText = `<b>${name || 'Ponto de Ônibus'}</b><br>Ponto de Ônibus`;
+                            } else if (element.tags.highway === 'traffic_signals') {
+                                icon = trafficLightIcon;
+                                popupText = 'Semáforo';
+                            }
+
+                            if (icon) {
+                                L.marker([element.lat, element.lon], {icon: icon}).addTo(poiLayerGroup)
+                                    .bindPopup(popupText);
+                            }
+                        });
+                    }
+
+                } catch (error) {
+                    console.error("Erro ao buscar POIs:", error);
                 }
-            } catch (error) {
-                console.error("Erro ao buscar POIs:", error);
             }
         }
 
@@ -624,17 +765,17 @@
             }
         });
         
-        // Função para alternar a exibição dos POIs (agora apenas hospitais)
+        // Função para alternar a exibição dos POIs
         function togglePOIs() {
             poisVisible = !poisVisible;
             if (poisVisible) {
                 fetchAndDisplayPOIs(mapInstance.getBounds());
-                togglePoisBtn.textContent = 'Ocultar Hospitais';
-                speak('Exibindo hospitais.');
+                togglePoisBtn.textContent = 'Ocultar Pontos de Interesse';
+                speak('Exibindo pontos de interesse.');
             } else {
                 poiLayerGroup.clearLayers();
-                togglePoisBtn.textContent = 'Exibir Hospitais';
-                speak('Hospitais ocultados.');
+                togglePoisBtn.textContent = 'Exibir Pontos de Interesse';
+                speak('Pontos de interesse ocultados.');
             }
         }
 
@@ -671,6 +812,8 @@
         // Ouve o evento de clique no botão para alternar os POIs
         togglePoisBtn.addEventListener('click', togglePOIs);
 
+        // Ouve o evento de clique no botão para alternar o modo noturno
+        toggleNightModeBtn.addEventListener('click', toggleNightMode);
 
         // Debounce function to limit API calls while typing
         function debounce(func, delay) {
