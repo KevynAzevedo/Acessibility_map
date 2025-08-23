@@ -9,6 +9,21 @@
     <!-- Leaflet CSS e JS para OpenStreetMap -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Tailwind CSS config para cores personalizadas -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'blue-gemini': '#1a73e8',
+                        'green-gemini': '#34a853',
+                        'red-gemini': '#ea4335',
+                        'yellow-gemini': '#fbbc05',
+                    }
+                }
+            }
+        }
+    </script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -17,15 +32,30 @@
             transition: background-color 0.3s ease;
         }
 
-        /* Estilos para o mapa Leaflet - Aumentado para 600px de altura */
+        /* Estilos para o mapa Leaflet - Agora flexível para se adaptar à tela */
         #mapa {
-            height: 600px; /* Altura aumentada para melhor visualização */
+            width: 100%;
+            height: 100%; /* Ocupa todo o espaço vertical disponível */
+            flex-grow: 1; /* Permite que o mapa se expanda */
             border-radius: 1rem;
             box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
             border: 2px solid;
             transition: border-color 0.3s ease;
         }
 
+        /* Container principal para o layout responsivo */
+        #app-container {
+            display: flex;
+            flex-direction: column-reverse; /* Em mobile, coloca a barra de controle embaixo */
+            min-height: 100vh;
+        }
+        /* Em telas maiores (sm), inverte a ordem para colocar a barra de controle em cima */
+        @media (min-width: 640px) {
+            #app-container {
+                flex-direction: column;
+            }
+        }
+        
         /* Estilos para o ícone de hospital (cruz vermelha) - Tamanho maior */
         .hospital-icon {
             font-size: 18px;
@@ -86,6 +116,38 @@
             border: 1px solid white;
         }
 
+        /* Estilos para o novo ícone de usuário (azul) */
+        .user-location-icon {
+            background-color: #1a73e8; /* Azul Gemini */
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.3);
+        }
+        
+        /* Estilos para o novo ícone de destino (vermelho) */
+        .destination-icon {
+            background-color: #ea4335; /* Vermelho Gemini */
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            width: 24px;
+            height: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .destination-icon::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+            width: 8px;
+            height: 8px;
+            background-color: white;
+            border-radius: 50%;
+        }
+
         /* Estilos para o modo daltônico */
         .colorblind-mode .bg-blue-600, .colorblind-mode .bg-blue-700 {
             background-color: #fca311; /* Laranja forte */
@@ -120,7 +182,7 @@
             padding-top: 1rem;
             padding-bottom: 1rem;
         }
-
+        
         /* Estilos para a lista de sugestões */
         #suggestions-list {
             position: absolute;
@@ -143,12 +205,12 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 sm:p-0">
 
     <!-- Container principal do aplicativo -->
-    <div id="app-container" class="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div id="app-container" class="w-full h-full max-w-none sm:max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden sm:rounded-none sm:shadow-none">
 
-        <!-- Seção do formulário de perfil -->
+        <!-- Seção do formulário de perfil (Permanece sem alterações de layout) -->
         <div id="profile-form" class="p-8">
             <h1 class="text-3xl font-bold text-center text-blue-900 mb-6">Meu Perfil GPS</h1>
             <p class="text-center text-gray-600 mb-8">
@@ -188,22 +250,45 @@
         </div>
 
         <!-- Seção do aplicativo de navegação -->
-        <div id="navigation-app" class="p-8 hidden">
-            <h2 class="text-3xl font-bold text-center text-blue-900 mb-6">Onde você quer ir?</h2>
-            
-            <div class="flex flex-col space-y-4">
-                <div class="relative">
-                    <input type="text" id="destination-input" class="w-full p-4 pl-4 pr-12 text-lg rounded-xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300 ease-in-out" placeholder="Ex: Rua das Rosas, 123">
-                    <!-- Lista de sugestões de endereço -->
-                    <ul id="suggestions-list" class="absolute hidden"></ul>
-                    <!-- Botão de microfone para reconhecimento de voz -->
-                    <button id="voice-input-btn" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        <div id="navigation-app" class="p-4 bg-white hidden sm:p-8 sm:rounded-2xl sm:shadow-xl sm:overflow-hidden">
+            <!-- Barra de navegação na parte superior para telas maiores -->
+            <div class="hidden sm:block">
+                <h2 class="text-3xl font-bold text-center text-blue-900 mb-6">Onde você quer ir?</h2>
+                <div class="flex flex-col space-y-4">
+                    <div class="relative">
+                        <input type="text" id="destination-input" class="w-full p-4 pl-4 pr-12 text-lg rounded-xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300 ease-in-out" placeholder="Ex: Rua das Rosas, 123">
+                        <ul id="suggestions-list" class="absolute hidden"></ul>
+                        <button id="voice-input-btn" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                        </button>
+                    </div>
+                    <button id="find-route-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                        Buscar Rota
                     </button>
                 </div>
-                <button id="find-route-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
-                    Buscar Rota
-                </button>
+            </div>
+
+            <!-- Container do mapa -->
+            <div class="mt-8 flex-grow">
+                <h3 class="hidden sm:block text-xl font-semibold text-blue-900 mb-4">Mapa da Rota</h3>
+                <!-- Novo container para o mapa do Leaflet -->
+                <div id="mapa"></div>
+            </div>
+            
+            <!-- Barra de navegação na parte inferior para telas menores -->
+            <div class="sm:hidden fixed bottom-0 left-0 w-full bg-white p-4 shadow-lg border-t border-gray-200">
+                <div class="flex flex-col space-y-4">
+                    <div class="relative">
+                        <input type="text" id="destination-input-mobile" class="w-full p-4 pl-4 pr-12 text-lg rounded-xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300 ease-in-out" placeholder="Ex: Rua das Rosas, 123">
+                        <ul id="suggestions-list-mobile" class="absolute hidden"></ul>
+                        <button id="voice-input-btn-mobile" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                        </button>
+                    </div>
+                    <button id="find-route-btn-mobile" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                        Buscar Rota
+                    </button>
+                </div>
             </div>
 
             <!-- Div para a exibição do passo atual da rota -->
@@ -217,13 +302,6 @@
                 <button id="center-dest-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Meu Destino</button>
                 <button id="toggle-pois-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Ocultar Pontos de Interesse</button>
                 <button id="toggle-night-mode-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-xl hover:bg-gray-300 transition duration-300">Modo Noturno</button>
-            </div>
-
-            <!-- Container do mapa -->
-            <div class="mt-8">
-                <h3 class="text-xl font-semibold text-blue-900 mb-4">Mapa da Rota</h3>
-                <!-- Novo container para o mapa do Leaflet -->
-                <div id="mapa"></div>
             </div>
             
             <!-- Botão para avançar para o próximo passo -->
@@ -284,9 +362,13 @@
         const navigationApp = document.getElementById('navigation-app');
         const preferencesForm = document.getElementById('preferences-form');
         const destinationInput = document.getElementById('destination-input');
+        const destinationInputMobile = document.getElementById('destination-input-mobile');
         const suggestionsList = document.getElementById('suggestions-list');
+        const suggestionsListMobile = document.getElementById('suggestions-list-mobile');
         const voiceInputBtn = document.getElementById('voice-input-btn');
+        const voiceInputBtnMobile = document.getElementById('voice-input-btn-mobile');
         const findRouteBtn = document.getElementById('find-route-btn');
+        const findRouteBtnMobile = document.getElementById('find-route-btn-mobile');
         const currentStepDisplay = document.getElementById('current-step-display');
         const nextStepContainer = document.getElementById('next-step-container');
         const nextStepBtn = document.getElementById('next-step-btn');
@@ -337,6 +419,22 @@
             iconSize: [18, 18],
             iconAnchor: [9, 18],
             popupAnchor: [0, -18]
+        });
+        
+        // Criação de ícone personalizado para a localização do usuário (círculo azul)
+        const userLocationIcon = L.divIcon({
+            className: 'user-location-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+            popupAnchor: [0, -8]
+        });
+
+        // Criação de ícone personalizado para o destino (pino vermelho)
+        const destinationIcon = L.divIcon({
+            className: 'destination-icon',
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+            popupAnchor: [0, -24]
         });
 
         // Função para mostrar o modal de mensagem (usado para alertas visuais)
@@ -405,7 +503,7 @@
         }
         
         // Função para iniciar o reconhecimento de voz
-        function startVoiceRecognition() {
+        function startVoiceRecognition(inputElement, suggestionsElement) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
                 showMessage('Seu navegador não suporta reconhecimento de voz.');
@@ -421,9 +519,9 @@
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                destinationInput.value = transcript;
+                inputElement.value = transcript;
                 speak(`Você disse: ${transcript}.`);
-                fetchSuggestions(transcript); // Chama a busca de sugestões após o reconhecimento
+                fetchSuggestions(transcript, inputElement, suggestionsElement); // Chama a busca de sugestões após o reconhecimento
             };
 
             recognition.onspeechend = () => {
@@ -517,16 +615,16 @@
             const currentZoom = mapInstance.getZoom();
             let queryElements = [];
 
-            // Adiciona hospitais a partir do zoom 14 (um nível depois do 13)
-            if (currentZoom >= 14) {
+            // Adiciona hospitais a partir do zoom 15
+            if (currentZoom >= 15) {
                 queryElements.push(`node["amenity"="hospital"](${bbox});`);
                 queryElements.push(`way["amenity"="hospital"](${bbox});`);
             }
-            // Adiciona restaurantes a partir do zoom 17 (um nível depois do 16)
+            // Adiciona restaurantes a partir do zoom 17
             if (currentZoom >= 17) {
                 queryElements.push(`node["amenity"="restaurant"](${bbox});`);
             }
-            // Adiciona pontos de ônibus e semáforos a partir do zoom 18 (um nível depois do 17)
+            // Adiciona pontos de ônibus e semáforos a partir do zoom 18
             if (currentZoom >= 18) {
                 queryElements.push(`node["highway"="bus_stop"](${bbox});`);
                 queryElements.push(`node["highway"="traffic_signals"](${bbox});`);
@@ -625,9 +723,9 @@
         }
         
         // Função para buscar e exibir sugestões de endereço
-        async function fetchSuggestions(query) {
+        async function fetchSuggestions(query, inputElement, suggestionsElement) {
             if (query.length < 3) {
-                suggestionsList.classList.add('hidden');
+                suggestionsElement.classList.add('hidden');
                 return;
             }
             
@@ -637,26 +735,26 @@
                 const data = await response.json();
                 
                 if (data.length > 0) {
-                    suggestionsList.innerHTML = ''; // Limpa a lista
-                    suggestionsList.classList.remove('hidden');
+                    suggestionsElement.innerHTML = ''; // Limpa a lista
+                    suggestionsElement.classList.remove('hidden');
                     data.forEach(item => {
                         const li = document.createElement('li');
                         li.textContent = item.display_name;
                         li.dataset.lat = item.lat;
                         li.dataset.lon = item.lon;
                         li.addEventListener('click', () => {
-                            destinationInput.value = item.display_name;
+                            inputElement.value = item.display_name;
                             destinationLocation = [parseFloat(item.lat), parseFloat(item.lon)];
-                            suggestionsList.classList.add('hidden');
+                            suggestionsElement.classList.add('hidden');
                         });
-                        suggestionsList.appendChild(li);
+                        suggestionsElement.appendChild(li);
                     });
                 } else {
-                    suggestionsList.classList.add('hidden');
+                    suggestionsElement.classList.add('hidden');
                 }
             } catch (error) {
                 console.error("Erro ao buscar sugestões:", error);
-                suggestionsList.classList.add('hidden');
+                suggestionsElement.classList.add('hidden');
             }
         }
         
@@ -672,7 +770,8 @@
                         navigationApp.classList.remove('hidden');
                         initMap();
                         mapInstance.setView(userLocation, 15);
-                        userMarker = L.marker(userLocation).addTo(mapInstance)
+                        if (userMarker) mapInstance.removeLayer(userMarker);
+                        userMarker = L.marker(userLocation, {icon: userLocationIcon}).addTo(mapInstance)
                             .bindPopup('Sua localização').openPopup();
                         speak('Localização encontrada. Para onde você quer ir?');
                     },
@@ -748,63 +847,69 @@
         });
 
         // Ouve o evento de clique no botão de busca de rota
-        findRouteBtn.addEventListener('click', async () => {
-            const destination = destinationInput.value.trim();
+        function handleFindRoute(inputElement) {
+            return async () => {
+                const destination = inputElement.value.trim();
 
-            if (destination === '') {
-                showMessage('Por favor, digite ou fale um destino para iniciar a rota.');
-                return;
-            }
-
-            if (!userLocation) {
-                showMessage('Não foi possível obter sua localização atual. Por favor, recarregue a página e permita a geolocalização.');
-                return;
-            }
-
-            speak('Aguarde, calculando a rota.');
-            
-            // Verifica se a localização de destino já foi selecionada da lista de sugestões
-            if (!destinationLocation) {
-                // Se não, faz a busca por geocodificação
-                const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`;
-                try {
-                    const response = await fetch(nominatimUrl);
-                    const data = await response.json();
-                    
-                    if (data.length > 0) {
-                        const destLat = data[0].lat;
-                        const destLon = data[0].lon;
-                        destinationLocation = [parseFloat(destLat), parseFloat(destLon)];
-                    } else {
-                        speak('Não foi possível encontrar as coordenadas do seu destino. Tente um endereço mais específico.');
-                        return;
-                    }
-                } catch (error) {
-                    console.error("Erro na geocodificação:", error);
-                    speak('Erro ao encontrar as coordenadas do destino. Verifique sua conexão.');
+                if (destination === '') {
+                    showMessage('Por favor, digite ou fale um destino para iniciar a rota.');
                     return;
                 }
-            }
 
-            // Adiciona o marcador do destino
-            if (destinationMarker) mapInstance.removeLayer(destinationMarker);
-            destinationMarker = L.marker(destinationLocation).addTo(mapInstance)
-                .bindPopup('Seu destino').openPopup();
+                if (!userLocation) {
+                    showMessage('Não foi possível obter sua localização atual. Por favor, recarregue a página e permita a geolocalização.');
+                    return;
+                }
 
-            const routeFound = await getRoute(userLocation, destinationLocation);
-            
-            if (routeFound) {
-                speak('Rota calculada com sucesso.');
-                currentStepIndex = 0;
-                currentStepDisplay.classList.remove('hidden');
-                nextStepContainer.classList.remove('hidden');
-                mapControlsContainer.classList.remove('hidden');
-                nextStep();
-            } else {
-                speak('Não foi possível calcular a rota para este destino.');
+                speak('Aguarde, calculando a rota.');
+                
+                // Verifica se a localização de destino já foi selecionada da lista de sugestões
+                if (!destinationLocation) {
+                    // Se não, faz a busca por geocodificação
+                    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`;
+                    try {
+                        const response = await fetch(nominatimUrl);
+                        const data = await response.json();
+                        
+                        if (data.length > 0) {
+                            const destLat = data[0].lat;
+                            const destLon = data[0].lon;
+                            destinationLocation = [parseFloat(destLat), parseFloat(destLon)];
+                        } else {
+                            speak('Não foi possível encontrar as coordenadas do seu destino. Tente um endereço mais específico.');
+                            return;
+                        }
+                    } catch (error) {
+                        console.error("Erro na geocodificação:", error);
+                        speak('Erro ao encontrar as coordenadas do destino. Verifique sua conexão.');
+                        return;
+                    }
+                }
+
+                // Adiciona o marcador do destino com o novo ícone
+                if (destinationMarker) mapInstance.removeLayer(destinationMarker);
+                destinationMarker = L.marker(destinationLocation, {icon: destinationIcon}).addTo(mapInstance)
+                    .bindPopup('Seu destino').openPopup();
+
+                const routeFound = await getRoute(userLocation, destinationLocation);
+                
+                if (routeFound) {
+                    speak('Rota calculada com sucesso.');
+                    currentStepIndex = 0;
+                    currentStepDisplay.classList.remove('hidden');
+                    nextStepContainer.classList.remove('hidden');
+                    mapControlsContainer.classList.remove('hidden');
+                    nextStep();
+                } else {
+                    speak('Não foi possível calcular a rota para este destino.');
+                }
             }
-        });
+        }
         
+        // Adiciona event listeners para os botões de busca de rota (desktop e mobile)
+        findRouteBtn.addEventListener('click', handleFindRoute(destinationInput));
+        findRouteBtnMobile.addEventListener('click', handleFindRoute(destinationInputMobile));
+
         // Função para alternar a exibição dos POIs
         function togglePOIs() {
             poisVisible = !poisVisible;
@@ -819,14 +924,23 @@
             }
         }
 
-        // Ouve o evento de digitação no campo de destino
-        destinationInput.addEventListener('input', debounce(() => {
-            fetchSuggestions(destinationInput.value);
-        }, 300));
+        // Sincroniza a entrada de texto entre os campos de destino (desktop e mobile)
+        destinationInput.addEventListener('input', () => {
+            destinationInputMobile.value = destinationInput.value;
+            debounce(() => fetchSuggestions(destinationInput.value, destinationInput, suggestionsList), 300)();
+        });
+        destinationInputMobile.addEventListener('input', () => {
+            destinationInput.value = destinationInputMobile.value;
+            debounce(() => fetchSuggestions(destinationInputMobile.value, destinationInputMobile, suggestionsListMobile), 300)();
+        });
+
 
         // Ouve o evento de clique no botão de microfone
         voiceInputBtn.addEventListener('click', () => {
-            startVoiceRecognition();
+            startVoiceRecognition(destinationInput, suggestionsList);
+        });
+        voiceInputBtnMobile.addEventListener('click', () => {
+            startVoiceRecognition(destinationInputMobile, suggestionsListMobile);
         });
 
         // Ouve o evento de clique no botão de fechar modal
