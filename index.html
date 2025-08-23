@@ -243,6 +243,21 @@
                 </button>
             </div>
         </div>
+
+        <!-- Modal para aviso de GPS não ativado -->
+        <div id="gps-permission-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-sm text-center">
+                <p class="text-lg text-gray-800 mb-4 font-semibold">
+                    Para continuar, o GPS precisa estar ativado.
+                </p>
+                <p class="text-sm text-gray-600 mb-6">
+                    Por favor, permita o acesso à sua localização para usar o aplicativo.
+                </p>
+                <button id="request-gps-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Ativar GPS
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -284,6 +299,8 @@
         const centerDestBtn = document.getElementById('center-dest-btn');
         const togglePoisBtn = document.getElementById('toggle-pois-btn');
         const toggleNightModeBtn = document.getElementById('toggle-night-mode-btn');
+        const gpsPermissionModal = document.getElementById('gps-permission-modal');
+        const requestGpsBtn = document.getElementById('request-gps-btn');
         
         // --- Ícones de Pontos de Interesse (POIs) ---
         // Criação de ícone personalizado para hospitais (cruz vermelha) - Tamanho maior
@@ -441,8 +458,9 @@
             // Exibe os POIs logo no início
             fetchAndDisplayPOIs(mapInstance.getBounds());
 
-            // Adiciona um listener para a mudança de visualização do mapa para buscar POIs
-            mapInstance.on('moveend', () => {
+            // Adiciona um listener para a mudança de zoom do mapa para buscar POIs
+            // Este ajuste evita que os ícones pisquem a cada movimento de panning
+            mapInstance.on('zoomend', () => {
                 if (poisVisible) {
                     fetchAndDisplayPOIs(mapInstance.getBounds());
                 }
@@ -499,17 +517,17 @@
             const currentZoom = mapInstance.getZoom();
             let queryElements = [];
 
-            // Adiciona hospitais a partir do zoom 13
-            if (currentZoom >= 13) {
+            // Adiciona hospitais a partir do zoom 14 (um nível depois do 13)
+            if (currentZoom >= 14) {
                 queryElements.push(`node["amenity"="hospital"](${bbox});`);
                 queryElements.push(`way["amenity"="hospital"](${bbox});`);
             }
-            // Adiciona restaurantes a partir do zoom 16
-            if (currentZoom >= 16) {
+            // Adiciona restaurantes a partir do zoom 17 (um nível depois do 16)
+            if (currentZoom >= 17) {
                 queryElements.push(`node["amenity"="restaurant"](${bbox});`);
             }
-            // Adiciona pontos de ônibus e semáforos a partir do zoom 17
-            if (currentZoom >= 17) {
+            // Adiciona pontos de ônibus e semáforos a partir do zoom 18 (um nível depois do 17)
+            if (currentZoom >= 18) {
                 queryElements.push(`node["highway"="bus_stop"](${bbox});`);
                 queryElements.push(`node["highway"="traffic_signals"](${bbox});`);
             }
@@ -641,6 +659,48 @@
                 suggestionsList.classList.add('hidden');
             }
         }
+        
+        // Nova função para checar a geolocalização e iniciar o app
+        function checkGeolocationAndStartApp() {
+            gpsPermissionModal.classList.add('hidden'); // Esconde o modal de permissão
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = [position.coords.latitude, position.coords.longitude];
+                        profileForm.classList.add('hidden');
+                        navigationApp.classList.remove('hidden');
+                        initMap();
+                        mapInstance.setView(userLocation, 15);
+                        userMarker = L.marker(userLocation).addTo(mapInstance)
+                            .bindPopup('Sua localização').openPopup();
+                        speak('Localização encontrada. Para onde você quer ir?');
+                    },
+                    (error) => {
+                        console.error('Erro ao obter a localização:', error);
+                        let errorMessage = 'Não foi possível obter sua localização. Por favor, tente novamente.';
+                        switch (error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Você negou a permissão de geolocalização. Por favor, permita a localização para usar o aplicativo.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'As informações de localização não estão disponíveis no momento.';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'A solicitação de localização expirou. Verifique sua conexão e tente novamente.';
+                                break;
+                        }
+                        
+                        // Exibe o modal de permissão do GPS
+                        gpsPermissionModal.classList.remove('hidden');
+                        speak('Para continuar, o GPS precisa estar ativado. Por favor, permita o acesso à sua localização.');
+                    }
+                );
+            } else {
+                speak('Seu navegador não suporta geolocalização. Por favor, use um navegador compatível.');
+                showMessage('Seu navegador não suporta geolocalização.');
+            }
+        }
 
         // Ouve o evento de envio do formulário de preferências
         preferencesForm.addEventListener('submit', (event) => {
@@ -683,43 +743,8 @@
                 appContainer.classList.remove('motor-impaired-mode');
             }
 
-            profileForm.classList.add('hidden');
-            navigationApp.classList.remove('hidden');
-            
             speak('Formulário preenchido. Bem-vindo ao GPS Inclusivo. Obtendo sua localização...');
-            initMap();
-            
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        userLocation = [position.coords.latitude, position.coords.longitude];
-                        mapInstance.setView(userLocation, 15);
-                        userMarker = L.marker(userLocation).addTo(mapInstance)
-                            .bindPopup('Sua localização').openPopup();
-                        speak('Localização encontrada. Para onde você quer ir?');
-                    },
-                    (error) => {
-                        console.error('Erro ao obter a localização:', error);
-                        let errorMessage = 'Não foi possível obter sua localização. Por favor, tente novamente.';
-                        switch (error.code) {
-                            case error.PERMISSION_DENIED:
-                                errorMessage = 'Você negou a permissão de geolocalização. Por favor, permita a localização para usar o aplicativo.';
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                errorMessage = 'As informações de localização não estão disponíveis no momento.';
-                                break;
-                            case error.TIMEOUT:
-                                errorMessage = 'A solicitação de localização expirou. Verifique sua conexão e tente novamente.';
-                                break;
-                        }
-                        speak(errorMessage);
-                        showMessage(errorMessage);
-                    }
-                );
-            } else {
-                speak('Seu navegador não suporta geolocalização. Por favor, use um navegador compatível.');
-                showMessage('Seu navegador não suporta geolocalização.');
-            }
+            checkGeolocationAndStartApp();
         });
 
         // Ouve o evento de clique no botão de busca de rota
@@ -810,6 +835,9 @@
         // Ouve o evento de clique no botão "Próximo Passo"
         nextStepBtn.addEventListener('click', nextStep);
 
+        // Ouve o evento de clique no botão "Ativar GPS"
+        requestGpsBtn.addEventListener('click', checkGeolocationAndStartApp);
+
         // Ouve o evento de clique no botão "Minha Localização"
         centerUserBtn.addEventListener('click', () => {
             if (userLocation) {
@@ -839,7 +867,6 @@
                 timeout = setTimeout(() => func.apply(context, args), delay);
             };
         }
-
     </script>
 </body>
 </html>
