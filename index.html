@@ -60,7 +60,7 @@
         }
         
         #route-instructions-panel, #floating-buttons-container { z-index: 1000; }
-        #poi-modal, #gemini-modal, #assistant-modal { z-index: 2000; }
+        #poi-modal, #gemini-modal, #assistant-modal, #tutorial-modal { z-index: 2000; }
 
         .loader {
             border: 4px solid #f3f3f3;
@@ -207,6 +207,20 @@
         </div>
     </div>
 
+    <!-- Modal Tutorial -->
+    <div id="tutorial-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-lg fade-in text-center">
+            <div id="tutorial-content" class="min-h-[200px]">
+                <!-- Conteúdo do tutorial será injetado aqui -->
+            </div>
+            <div class="flex justify-between items-center mt-6">
+                <button id="tutorial-prev-btn" class="py-2 px-4 bg-gray-200 rounded-lg hover:bg-gray-300">Anterior</button>
+                <p id="tutorial-step-indicator" class="text-gray-600 font-semibold"></p>
+                <button id="tutorial-next-btn" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Próximo</button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         // Variáveis globais e de estado
@@ -264,12 +278,17 @@
         const closeGeminiModalBtn = document.getElementById('close-gemini-modal-btn');
         const geminiLoader = document.getElementById('gemini-loader');
         const geminiResponseEl = document.getElementById('gemini-response');
-        // Elementos do Assistente
         const assistantBtn = document.getElementById('assistant-btn');
         const assistantModal = document.getElementById('assistant-modal');
         const assistantText = document.getElementById('assistant-text');
         const listeningIndicator = document.getElementById('listening-indicator');
         const closeAssistantModalBtn = document.getElementById('close-assistant-modal-btn');
+        // Elementos do Tutorial
+        const tutorialModal = document.getElementById('tutorial-modal');
+        const tutorialContent = document.getElementById('tutorial-content');
+        const tutorialPrevBtn = document.getElementById('tutorial-prev-btn');
+        const tutorialNextBtn = document.getElementById('tutorial-next-btn');
+        const tutorialStepIndicator = document.getElementById('tutorial-step-indicator');
         
         // --- INICIALIZAÇÃO E PERFIL ---
         
@@ -283,6 +302,7 @@
             profileForm.classList.add('hidden');
             navigationScreen.style.display = 'flex';
             initMap();
+            showTutorial();
         });
 
         // --- MAPA E GEOLOCALIZAÇÃO ---
@@ -340,7 +360,7 @@
             const data = await response.json();
             
             if (assistantState.active) {
-                return data; // Retorna os dados para o assistente
+                return data;
             }
 
             suggestionsBox.innerHTML = '';
@@ -540,7 +560,10 @@
         // --- SÍNTESE DE FALA E RECONHECIMENTO DE VOZ ---
 
         function speak(text, callback) {
-            if (!('speechSynthesis' in window)) return;
+            if (!('speechSynthesis' in window)) {
+                if(callback) callback();
+                return;
+            };
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'pt-PT';
@@ -563,6 +586,7 @@
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
+                recognition.stop();
                 callback(transcript);
             };
             recognition.onend = () => {
@@ -583,7 +607,7 @@
 
         function startWakeWordListener() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) return; // Não suporta
+            if (!SpeechRecognition) return;
             
             wakeWordRecognition = new SpeechRecognition();
             wakeWordRecognition.lang = 'pt-PT';
@@ -593,20 +617,37 @@
             wakeWordRecognition.onresult = (event) => {
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     const transcript = event.results[i][0].transcript.toLowerCase().trim();
-                    if (transcript.includes("help") && !assistantState.active) {
+                    if (transcript.includes("help") && !assistantState.active && tutorialModal.classList.contains('hidden')) {
                         openAssistant();
                     }
                 }
             };
+            
+            wakeWordRecognition.onerror = (event) => {
+                // Erros como 'no-speech' são normais e o 'onend' irá tratar de reiniciar.
+                // Apenas logamos para depuração.
+                console.warn("Erro no listener da palavra-chave:", event.error);
+            };
 
             wakeWordRecognition.onend = () => {
-                // Reinicia o reconhecimento se ele parar inesperadamente
+                // A API de reconhecimento de voz do navegador para automaticamente por várias razões.
+                // Esta lógica garante que ele reinicie discretamente para continuar a ouvir a palavra-chave.
                 if (!assistantState.active) {
-                    setTimeout(() => wakeWordRecognition.start(), 500);
+                    setTimeout(() => {
+                        try {
+                           if (wakeWordRecognition) wakeWordRecognition.start();
+                        } catch(e) {
+                           console.error("Não foi possível reiniciar o listener da palavra-chave.", e);
+                        }
+                    }, 100); // Reinício rápido para minimizar a interrupção
                 }
             };
             
-            wakeWordRecognition.start();
+            try {
+                wakeWordRecognition.start();
+            } catch(e) {
+                console.error("Não foi possível iniciar o listener de palavra-chave.", e)
+            }
         }
 
         function updateAssistantText(text, shouldSpeak, callback) {
@@ -659,9 +700,9 @@
         }
 
         function openAssistant() {
-            if (assistantState.active) return; // Previne múltiplas aberturas
+            if (assistantState.active) return;
             
-            if (wakeWordRecognition) wakeWordRecognition.stop(); // Para o listener de palavra-chave
+            if (wakeWordRecognition) wakeWordRecognition.stop();
             assistantState.active = true;
             assistantState.stage = 'listening_destination';
             assistantModal.classList.remove('hidden');
@@ -672,12 +713,13 @@
         }
 
         function closeAssistant() {
+            if (!assistantState.active) return;
             assistantState.active = false;
             assistantState.stage = 'idle';
             assistantState.tempAddress = null;
             assistantModal.classList.add('hidden');
             window.speechSynthesis.cancel();
-            startWakeWordListener(); // Reinicia o listener de palavra-chave
+            startWakeWordListener();
         }
 
         assistantBtn.addEventListener('click', openAssistant);
@@ -739,6 +781,56 @@
         closeGeminiModalBtn.addEventListener('click', () => {
             geminiModal.classList.add('hidden');
             window.speechSynthesis.cancel();
+        });
+
+        // --- LÓGICA DO TUTORIAL ---
+        const tutorialSteps = [
+            { icon: 'fa-solid fa-hand-sparkles', title: 'Bem-vindo ao Help!', text: 'Este é um guia rápido para o ajudar a começar a usar a aplicação.' },
+            { icon: 'fa-solid fa-search-location', title: 'Encontre o seu Destino', text: 'Use a barra de pesquisa no topo para digitar ou dizer para onde quer ir.' },
+            { icon: 'fa-solid fa-compass', title: 'Explore os Arredores', text: 'Use os botões flutuantes para se centrar no mapa, obter descrições por IA dos arredores ou encontrar pontos de interesse.' },
+            { icon: 'fa-solid fa-headset', title: 'Chame o Assistente', text: 'A qualquer momento, diga "Help" em voz alta ou toque no ícone do assistente para obter ajuda por voz.' },
+            { icon: 'fa-solid fa-check-circle', title: 'Está Pronto!', text: 'Boa viagem! Toque em "Concluir" para começar a explorar.' }
+        ];
+        let currentTutorialStep = 0;
+
+        function showTutorial() {
+            currentTutorialStep = 0;
+            updateTutorialStep(currentTutorialStep);
+            tutorialModal.classList.remove('hidden');
+        }
+
+        function updateTutorialStep(step) {
+            const content = tutorialSteps[step];
+            tutorialContent.innerHTML = `
+                <i class="${content.icon} text-blue-600 text-5xl mb-4"></i>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">${content.title}</h3>
+                <p class="text-gray-600">${content.text}</p>
+            `;
+            tutorialStepIndicator.textContent = `${step + 1} / ${tutorialSteps.length}`;
+            
+            tutorialPrevBtn.classList.toggle('hidden', step === 0);
+
+            if (step === tutorialSteps.length - 1) {
+                tutorialNextBtn.textContent = 'Concluir';
+            } else {
+                tutorialNextBtn.textContent = 'Próximo';
+            }
+        }
+
+        tutorialNextBtn.addEventListener('click', () => {
+            if (currentTutorialStep < tutorialSteps.length - 1) {
+                currentTutorialStep++;
+                updateTutorialStep(currentTutorialStep);
+            } else {
+                tutorialModal.classList.add('hidden');
+            }
+        });
+
+        tutorialPrevBtn.addEventListener('click', () => {
+            if (currentTutorialStep > 0) {
+                currentTutorialStep--;
+                updateTutorialStep(currentTutorialStep);
+            }
         });
         
         // --- FUNÇÕES UTILITÁRIAS ---
