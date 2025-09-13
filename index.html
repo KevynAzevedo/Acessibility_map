@@ -228,7 +228,6 @@
         let userMarker;
         let routingControl;
         let userLocation = null;
-        let wakeWordRecognition;
         let state = {
             profile: 'none',
             vibrationEnabled: false,
@@ -320,7 +319,6 @@
             const debouncedPoiFetcher = debounce(fetchAndDisplayPOIs, 1500);
             mapa.on('zoomend', debouncedPoiFetcher);
             mapa.on('moveend', debouncedPoiFetcher);
-            startWakeWordListener(); // Inicia o listener da palavra-chave
         }
 
         function onLocationFound(e) {
@@ -350,28 +348,46 @@
         });
 
         async function fetchAddressSuggestions(query) {
-            if (query.length < 3) {
+            if (!query || query.length < 3) {
                 suggestionsBox.innerHTML = '';
-                return null;
-            }
-            const viewbox = mapa.getBounds().toBBoxString();
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=br&limit=5&viewbox=${viewbox}&bounded=1`;
-            const response = await fetch(url);
-            const data = await response.json();
-            
-            if (assistantState.active) {
-                return data;
+                return assistantState.active ? [] : null;
             }
 
-            suggestionsBox.innerHTML = '';
-            data.forEach(item => {
-                const div = document.createElement('div');
-                div.innerHTML = item.display_name;
-                div.className = 'p-3 border-b cursor-pointer hover:bg-gray-100';
-                div.onclick = () => createRoute(item.lat, item.lon, item.display_name);
-                suggestionsBox.appendChild(div);
-            });
-            return null;
+            try {
+                const viewbox = mapa.getBounds().toBBoxString();
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&limit=5&viewbox=${viewbox}`;
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                if (assistantState.active) {
+                    return data;
+                }
+
+                suggestionsBox.innerHTML = '';
+                if (data.length === 0) {
+                    suggestionsBox.innerHTML = `<div class="p-3 text-gray-500">Nenhum resultado encontrado.</div>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.innerHTML = item.display_name;
+                    div.className = 'p-3 border-b cursor-pointer hover:bg-gray-100';
+                    div.onclick = () => createRoute(item.lat, item.lon, item.display_name);
+                    suggestionsBox.appendChild(div);
+                });
+
+            } catch (error) {
+                console.error("Erro ao buscar sugestões de endereço:", error);
+                if (!assistantState.active) {
+                    suggestionsBox.innerHTML = `<div class="p-3 text-red-500">Erro ao buscar endereços.</div>`;
+                }
+                return assistantState.active ? [] : null;
+            }
         }
         
         function createRoute(lat, lon, name) {
@@ -600,55 +616,10 @@
         }
         voiceInputBtn.addEventListener('click', () => startVoiceRecognition((transcript) => {
             destinationInput.value = transcript;
-            fetchAddressSuggestions(transcript);
+            debouncedAddressFetcher(transcript);
         }));
         
-        // --- ASSISTENTE VIRTUAL E PALAVRA-CHAVE "HELP" ---
-
-        function startWakeWordListener() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) return;
-            
-            wakeWordRecognition = new SpeechRecognition();
-            wakeWordRecognition.lang = 'pt-PT';
-            wakeWordRecognition.continuous = true;
-            wakeWordRecognition.interimResults = true;
-
-            wakeWordRecognition.onresult = (event) => {
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const transcript = event.results[i][0].transcript.toLowerCase().trim();
-                    if (transcript.includes("help") && !assistantState.active && tutorialModal.classList.contains('hidden')) {
-                        openAssistant();
-                    }
-                }
-            };
-            
-            wakeWordRecognition.onerror = (event) => {
-                // Erros como 'no-speech' são normais e o 'onend' irá tratar de reiniciar.
-                // Apenas logamos para depuração.
-                console.warn("Erro no listener da palavra-chave:", event.error);
-            };
-
-            wakeWordRecognition.onend = () => {
-                // A API de reconhecimento de voz do navegador para automaticamente por várias razões.
-                // Esta lógica garante que ele reinicie discretamente para continuar a ouvir a palavra-chave.
-                if (!assistantState.active) {
-                    setTimeout(() => {
-                        try {
-                           if (wakeWordRecognition) wakeWordRecognition.start();
-                        } catch(e) {
-                           console.error("Não foi possível reiniciar o listener da palavra-chave.", e);
-                        }
-                    }, 100); // Reinício rápido para minimizar a interrupção
-                }
-            };
-            
-            try {
-                wakeWordRecognition.start();
-            } catch(e) {
-                console.error("Não foi possível iniciar o listener de palavra-chave.", e)
-            }
-        }
+        // --- ASSISTENTE VIRTUAL ---
 
         function updateAssistantText(text, shouldSpeak, callback) {
             assistantText.textContent = text;
@@ -702,7 +673,6 @@
         function openAssistant() {
             if (assistantState.active) return;
             
-            if (wakeWordRecognition) wakeWordRecognition.stop();
             assistantState.active = true;
             assistantState.stage = 'listening_destination';
             assistantModal.classList.remove('hidden');
@@ -719,7 +689,6 @@
             assistantState.tempAddress = null;
             assistantModal.classList.add('hidden');
             window.speechSynthesis.cancel();
-            startWakeWordListener();
         }
 
         assistantBtn.addEventListener('click', openAssistant);
@@ -788,7 +757,7 @@
             { icon: 'fa-solid fa-hand-sparkles', title: 'Bem-vindo ao Help!', text: 'Este é um guia rápido para o ajudar a começar a usar a aplicação.' },
             { icon: 'fa-solid fa-search-location', title: 'Encontre o seu Destino', text: 'Use a barra de pesquisa no topo para digitar ou dizer para onde quer ir.' },
             { icon: 'fa-solid fa-compass', title: 'Explore os Arredores', text: 'Use os botões flutuantes para se centrar no mapa, obter descrições por IA dos arredores ou encontrar pontos de interesse.' },
-            { icon: 'fa-solid fa-headset', title: 'Chame o Assistente', text: 'A qualquer momento, diga "Help" em voz alta ou toque no ícone do assistente para obter ajuda por voz.' },
+            { icon: 'fa-solid fa-headset', title: 'Chame o Assistente', text: 'A qualquer momento, toque no ícone do assistente para obter ajuda por voz.' },
             { icon: 'fa-solid fa-check-circle', title: 'Está Pronto!', text: 'Boa viagem! Toque em "Concluir" para começar a explorar.' }
         ];
         let currentTutorialStep = 0;
@@ -850,7 +819,9 @@
             const remainingMinutes = minutes % 60;
             return `Aprox. ${hours}h ${remainingMinutes}min`;
         }
-        destinationInput.addEventListener('input', () => debounce(() => fetchAddressSuggestions(destinationInput.value), 300));
+        
+        const debouncedAddressFetcher = debounce(fetchAddressSuggestions, 300);
+        destinationInput.addEventListener('input', (e) => debouncedAddressFetcher(e.target.value));
 
     </script>
 </body>
